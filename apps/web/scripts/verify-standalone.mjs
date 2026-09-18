@@ -2,20 +2,20 @@
  * Boots the standalone bundle exactly the way the desktop app does and checks
  * that the server, the bundled fonts and the pdf.js worker are all reachable.
  */
-import { spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createChecker, freePort, startServer, waitForHttp } from '../../../scripts/test-harness.mjs';
 
-const PORT = Number(process.env.VERIFY_PORT ?? 41831);
+const PORT = await freePort('VERIFY_PORT');
 const BASE = `http://127.0.0.1:${PORT}`;
 const standalone = path.join(import.meta.dirname, '..', '.next', 'standalone');
 const entry = path.join(standalone, 'apps', 'web', 'server.js');
 
-const server = spawn(process.execPath, [entry], {
+const server = startServer({
+  args: [entry],
   cwd: path.dirname(entry),
   env: {
-    ...process.env,
     NODE_ENV: 'production',
     PORT: String(PORT),
     HOSTNAME: '127.0.0.1',
@@ -23,32 +23,16 @@ const server = spawn(process.execPath, [entry], {
     MEDF_DATA_DIR: mkdtempSync(path.join(tmpdir(), 'medf-verify-')),
     MEDF_SESSION_SECRET: 'verify-standalone-secret-verify-standalone',
   },
-  stdio: ['ignore', 'pipe', 'pipe'],
 });
 
-const logs = [];
-server.stdout.on('data', (chunk) => logs.push(String(chunk)));
-server.stderr.on('data', (chunk) => logs.push(String(chunk)));
-
-let failed = false;
-function check(label, ok, detail = '') {
-  console.log(`  ${ok ? '✓' : '✗'} ${label}${ok || !detail ? '' : ` — ${detail}`}`);
-  if (!ok) failed = true;
-}
+const { check, report } = createChecker({ name: 'ตรวจ standalone bundle' });
 
 try {
-  const deadline = Date.now() + 60_000;
-  let health = null;
-  while (Date.now() < deadline && !health) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) health = await response.json();
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    }
-  }
+  const health = await waitForHttp(`${BASE}/api/health`, { timeoutMs: 60_000, server })
+    .then((response) => response.json())
+    .catch(() => null);
 
-  check('standalone server ตอบสนอง', Boolean(health?.ok), logs.join('').slice(-1200));
+  check('standalone server ตอบสนอง', health?.ok === true, server.output().slice(-1200));
   if (health) {
     const landing = await fetch(BASE);
     check('หน้า landing แสดงผลได้', landing.ok);
@@ -65,12 +49,10 @@ try {
     check('หน้าเข้าสู่ระบบแสดงผลได้', login.ok);
   }
 } finally {
-  server.kill('SIGTERM');
+  server.stop();
 }
 
-if (failed) {
-  console.error('\n--- server log ---\n' + logs.join('').slice(-2000));
-  process.exitCode = 1;
-} else {
-  console.log('\n✅ standalone bundle พร้อมนำไปแพ็กเป็นแอป Windows');
-}
+const code = report();
+if (code !== 0) console.error('\n--- server log ---\n' + server.output().slice(-2000));
+else console.log('   standalone bundle พร้อมนำไปแพ็กเป็นแอป Windows');
+process.exitCode = code;

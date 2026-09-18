@@ -8,11 +8,18 @@
  *
  * Usage: node scripts/smoke-test.mjs   (run `next build` first)
  */
-import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import {
+  Session as HarnessSession,
+  createChecker,
+  freePort,
+  startNextServer,
+  waitForHttp,
+} from '../../../scripts/test-harness.mjs';
+import { makeSamplePdf } from './make-sample-pdf.mjs';
+
 /**
  * The Next.js app directory, resolved from this file rather than from the
  * caller's working directory — these scripts are run from the repository root
@@ -20,77 +27,27 @@ import path from 'node:path';
  */
 const webRoot = path.join(import.meta.dirname, '..');
 
-import { makeSamplePdf } from './make-sample-pdf.mjs';
-
-const PORT = Number(process.env.SMOKE_PORT ?? 41730);
+const PORT = await freePort('SMOKE_PORT');
 const BASE = `http://127.0.0.1:${PORT}`;
 const PASSWORD = 'SuperSecret123';
 
-let passed = 0;
-function check(label, condition, detail = '') {
-  if (condition) {
-    passed += 1;
-    console.log(`  ✓ ${label}`);
-  } else {
-    throw new Error(`✗ ${label}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+/**
+ * Fail fast here: each step builds on the last (register, then upload, then
+ * edit, then export), so carrying on past a failure only produces noise.
+ */
+const checker = createChecker({ failFast: true, name: 'ทดสอบ API' });
+const check = checker.check;
 
-// --- Minimal cookie jar ------------------------------------------------------
-class Session {
+/** The cookie jar, pre-bound to this run's base URL. */
+class Session extends HarnessSession {
   constructor() {
-    this.cookies = new Map();
-  }
-
-  header() {
-    return [...this.cookies].map(([name, value]) => `${name}=${value}`).join('; ');
-  }
-
-  absorb(response) {
-    const raw = response.headers.getSetCookie?.() ?? [];
-    for (const cookie of raw) {
-      const [pair] = cookie.split(';');
-      const index = pair.indexOf('=');
-      const name = pair.slice(0, index).trim();
-      const value = pair.slice(index + 1).trim();
-      if (value === '') this.cookies.delete(name);
-      else this.cookies.set(name, value);
-    }
-  }
-
-  async fetch(url, init = {}) {
-    const headers = new Headers(init.headers);
-    const cookie = this.header();
-    if (cookie) headers.set('cookie', cookie);
-    const response = await fetch(`${BASE}${url}`, { ...init, headers, redirect: 'manual' });
-    this.absorb(response);
-    return response;
-  }
-
-  async json(url, init) {
-    const response = await this.fetch(url, init);
-    const body = await response.json().catch(() => null);
-    return { status: response.status, body, response };
+    super(BASE);
   }
 }
 
 /** A plain request with no cookie jar, for pages that need no session. */
 function anonymousFetch(url, init) {
   return fetch(`${BASE}${url}`, { ...init, redirect: 'manual' });
-}
-
-async function waitForServer(timeoutMs = 90_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return await response.json();
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  }
-  throw new Error('เซิร์ฟเวอร์ไม่ตอบสนองภายในเวลาที่กำหนด');
 }
 
 async function main() {
@@ -132,27 +89,20 @@ async function main() {
   const samplePath = path.join(dataDir, 'sample.pdf');
   await writeFile(samplePath, sample);
 
-  // Resolve the Next CLI through Node so workspace hoisting does not matter.
-  const nextBin = createRequire(import.meta.url).resolve('next/dist/bin/next');
-  const server = spawn('node', [nextBin, 'start', '-p', String(PORT)], {
+  const server = startNextServer({
     cwd: webRoot,
+    port: PORT,
     env: {
-      ...process.env,
-      NODE_ENV: 'production',
       MEDF_DATA_DIR: dataDir,
       MEDF_SESSION_SECRET: 'smoke-test-secret-smoke-test-secret',
       MEDF_BILLING_SANDBOX: '1',
       MEDF_APP_URL: BASE,
       MEDF_PRO_MODULE: proModulePath,
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  const logs = [];
-  server.stdout.on('data', (chunk) => logs.push(String(chunk)));
-  server.stderr.on('data', (chunk) => logs.push(String(chunk)));
 
   try {
-    const health = await waitForServer();
+    const health = await (await waitForHttp(`${BASE}/api/health`, { server })).json();
     console.log('\n[1] เซิร์ฟเวอร์และสถานะระบบ');
     check('GET /api/health ตอบ ok', health.ok === true);
     check('เริ่มต้นด้วยฐานข้อมูลว่าง', health.members === 0, JSON.stringify(health));
@@ -764,13 +714,13 @@ async function main() {
     const afterLogout = await alice.json('/api/auth/me');
     check('ออกจากระบบแล้วไม่มีเซสชัน', afterLogout.body.user === null);
 
-    console.log(`\n✅ ผ่านทั้งหมด ${passed} ข้อ`);
+    process.exitCode = checker.report();
   } catch (error) {
     console.error(`\n❌ ${error.message}`);
-    console.error('\n--- server log ---\n' + logs.join('').slice(-4000));
+    console.error('\n--- server log ---\n' + server.output().slice(-4000));
     process.exitCode = 1;
   } finally {
-    server.kill('SIGTERM');
+    server.stop();
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (!process.env.MEDF_KEEP_SMOKE_DATA) await rm(dataDir, { recursive: true, force: true });
   }

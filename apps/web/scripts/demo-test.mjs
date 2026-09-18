@@ -6,69 +6,46 @@
  * API route. That last check is what guarantees the page still works as a
  * static file on GitHub Pages.
  */
-import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import {
+  createChecker,
+  findChromium,
+  freePort,
+  loadPlaywright,
+  startNextServer,
+  waitForHttp,
+} from '../../../scripts/test-harness.mjs';
 
-const require = createRequire(import.meta.url);
 /**
  * The Next.js app directory, resolved from this file rather than from the
  * caller's working directory — these scripts are run from the repository root
- * (`npm run test:api`) as well as from `apps/web`.
+ * (`npm run test:demo`) as well as from `apps/web`.
  */
 const webRoot = path.join(import.meta.dirname, '..');
 
-const PORT = Number(process.env.DEMO_PORT ?? 41940);
+const PORT = await freePort('DEMO_PORT');
 const BASE = `http://127.0.0.1:${PORT}`;
 
-let failed = false;
-let passed = 0;
-function check(label, ok, detail = '') {
-  console.log(`  ${ok ? '✓' : '✗'} ${label}${ok || !detail ? '' : ` — ${detail}`}`);
-  if (ok) passed += 1;
-  else failed = true;
-}
-
-function findChromium() {
-  if (process.env.PLAYWRIGHT_CHROMIUM) return process.env.PLAYWRIGHT_CHROMIUM;
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
-  if (!root || !existsSync(root)) return undefined;
-  return readdirSync(root)
-    .filter((name) => name.startsWith('chromium-'))
-    .map((name) => path.join(root, name, 'chrome-linux', 'chrome'))
-    .find((candidate) => existsSync(candidate));
-}
+const { check, report } = createChecker({ name: 'ทดสอบโหมดทดลอง' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-demo-'));
-const server = spawn('node', [require.resolve('next/dist/bin/next'), 'start', '-p', String(PORT)], {
+const server = startNextServer({
   cwd: webRoot,
+  port: PORT,
   env: {
-    ...process.env,
-    NODE_ENV: 'production',
     MEDF_DATA_DIR: dataDir,
     MEDF_SESSION_SECRET: 'demo-test-secret-demo-test-secret-demo',
   },
-  stdio: ['ignore', 'pipe', 'pipe'],
 });
-const logs = [];
-server.stdout.on('data', (chunk) => logs.push(String(chunk)));
-server.stderr.on('data', (chunk) => logs.push(String(chunk)));
 
+let failed = false;
 let browser;
 try {
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    try {
-      if ((await fetch(`${BASE}/api/health`)).ok) break;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    }
-  }
+  await waitForHttp(`${BASE}/api/health`, { server });
 
-  const { chromium } = require('playwright');
+  const { chromium } = loadPlaywright();
   browser = await browserLaunch(chromium);
   const context = await browser.newContext({
     viewport: { width: 1500, height: 950 },
@@ -211,16 +188,15 @@ try {
 } catch (error) {
   failed = true;
   console.error(`\n❌ ${error.message}`);
-  console.error('\n--- server log ---\n' + logs.join('').slice(-1500));
+  console.error('\n--- server log ---\n' + server.output().slice(-1500));
 } finally {
   await browser?.close().catch(() => undefined);
-  server.kill('SIGTERM');
+  server.stop();
   await new Promise((resolve) => setTimeout(resolve, 300));
   if (!process.env.MEDF_KEEP_DEMO_DATA) await rm(dataDir, { recursive: true, force: true });
 }
 
-if (failed) process.exitCode = 1;
-else console.log(`\n✅ ผ่านทั้งหมด ${passed} ข้อ`);
+process.exitCode = failed ? 1 : report();
 
 function browserLaunch(chromium) {
   return chromium.launch({

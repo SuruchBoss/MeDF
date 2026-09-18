@@ -5,47 +5,24 @@
  *
  * Run `npm run demo:build` first.
  */
-import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import {
+  createChecker,
+  extractPdfText,
+  findChromium,
+  freePort,
+  loadPlaywright,
+  startStaticServer,
+  waitForHttp,
+} from '../../../scripts/test-harness.mjs';
 
-const require = createRequire(import.meta.url);
-
-/**
- * Serve on a port nobody else holds. A fixed port is a trap here: if something
- * is already listening, the test happily drives *that* site instead and its
- * results mean nothing.
- */
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const probe = net.createServer();
-    probe.unref();
-    probe.on('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address();
-      probe.close(() => resolve(port));
-    });
-  });
-}
-
-const PORT = Number(process.env.STATIC_PORT) || (await freePort());
+const PORT = await freePort('STATIC_PORT');
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/MeDF';
 const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 const demoRoot = path.join(import.meta.dirname, '..');
-
-function findChromium() {
-  if (process.env.PLAYWRIGHT_CHROMIUM) return process.env.PLAYWRIGHT_CHROMIUM;
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
-  if (!root || !existsSync(root)) return undefined;
-  return readdirSync(root)
-    .filter((name) => name.startsWith('chromium-'))
-    .map((name) => path.join(root, name, 'chrome-linux', 'chrome'))
-    .find((candidate) => existsSync(candidate));
-}
 
 if (!existsSync(path.join(demoRoot, 'out', 'index.html'))) {
   console.error('[static-test] ไม่พบผลลัพธ์ที่ apps/demo/out — รัน `npm run demo:build` ก่อน');
@@ -58,102 +35,149 @@ await cp(path.join(demoRoot, 'out'), path.join(siteRoot, BASE_PATH.replace(/^\//
   recursive: true,
 });
 
-const fileServer = spawn(
-  process.execPath,
-  [require.resolve('http-server/bin/http-server'), '-p', String(PORT), '-c-1', '--silent', '.'],
-  { cwd: siteRoot, stdio: ['ignore', 'pipe', 'pipe'] },
-);
-
-const deadline = Date.now() + 60_000;
-while (Date.now() < deadline) {
-  try {
-    if ((await fetch(`${BASE}/`)).ok) break;
-  } catch {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  }
-}
-
-const { chromium } = require('playwright');
+const server = startStaticServer({ cwd: siteRoot, port: PORT });
+const { check, section, report } = createChecker({ name: 'ทดสอบเว็บสถิต' });
 
 let failed = false;
-const ok = (l, c, d = '') => { console.log(`  ${c ? '✓' : '✗'} ${l}${c || !d ? '' : ` — ${d}`}`); if (!c) failed = true; };
+let browser;
+try {
+  await waitForHttp(`${BASE}/`, { timeoutMs: 60_000, server });
 
-const b = await chromium.launch({
-  args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  executablePath: findChromium(),
-});
-const ctx = await b.newContext({ viewport: { width: 1500, height: 950 }, acceptDownloads: true });
-const page = await ctx.newPage();
-const errors = [], bad = [];
-page.on('pageerror', (e) => errors.push(String(e)));
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-page.on('response', (r) => { if (r.status() >= 400) bad.push(`${r.status()} ${new URL(r.url()).pathname}`); });
+  const { chromium } = loadPlaywright();
+  browser = await chromium.launch({
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    executablePath: findChromium(),
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1500, height: 950 },
+    acceptDownloads: true,
+  });
+  const page = await context.newPage();
 
-console.log('\n[1] Landing page (static)');
-await page.goto(`${BASE}/`, { waitUntil: 'load' });
-ok('หน้า landing โหลดได้', (await page.title()).includes('MeDF'), await page.title());
-ok('มีหัวข้อหลัก', (await page.getByRole('heading', { level: 1 }).first().innerText()).includes('PDF'));
-ok('ปุ่ม “ลองใช้ทันที” อยู่ใน header', (await page.locator('header a:has-text("ลองใช้ทันที")').count()) > 0);
-ok('ไม่มีปุ่มเข้าสู่ระบบ/สมัคร (ไม่มีเซิร์ฟเวอร์)', (await page.locator('header a:has-text("เข้าสู่ระบบ")').count()) === 0);
-ok('มีลิงก์ไป GitHub', (await page.locator('header a:has-text("GitHub")').count()) > 0);
-ok('ส่วนแพ็กเกจแสดงผล', (await page.locator('#pricing').count()) > 0);
-ok('ฟอนต์ Sarabun ถูกใช้', await page.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Sarabun')));
-await page.screenshot({ path: path.join(siteRoot, 'landing.png') });
+  const consoleErrors = [];
+  const badResponses = [];
+  page.on('pageerror', (error) => consoleErrors.push(String(error)));
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('response', (response) => {
+    if (response.status() >= 400) {
+      badResponses.push(`${response.status()} ${new URL(response.url()).pathname}`);
+    }
+  });
 
-console.log('\n[2] ไปหน้าทดลองใช้ผ่านปุ่มบน landing');
-await page.locator('header a:has-text("ลองใช้ทันที")').first().click();
-await page.waitForURL('**/try/**', { timeout: 30000 });
-ok('ปุ่มพาไปหน้า /try ได้', page.url().includes(`${BASE_PATH}/try`), page.url());
-await page.waitForSelector('button:has-text("ใช้เอกสารตัวอย่าง"):not([disabled])', { timeout: 60000 });
-ok('หน้า /try พร้อมใช้งาน (hydrate สำเร็จ)', true);
+  section('Landing page (static)');
+  await page.goto(`${BASE}/`, { waitUntil: 'load' });
+  const title = await page.title();
+  check('หน้า landing โหลดได้', title.includes('MeDF'), title);
+  check(
+    'มีหัวข้อหลัก',
+    (await page.getByRole('heading', { level: 1 }).first().innerText()).includes('PDF'),
+  );
+  check(
+    'ปุ่ม “ลองใช้ทันที” อยู่ใน header',
+    (await page.locator('header a:has-text("ลองใช้ทันที")').count()) > 0,
+  );
+  check(
+    'ไม่มีปุ่มเข้าสู่ระบบ/สมัคร (ไม่มีเซิร์ฟเวอร์)',
+    (await page.locator('header a:has-text("เข้าสู่ระบบ")').count()) === 0,
+  );
+  check('มีลิงก์ไป GitHub', (await page.locator('header a:has-text("GitHub")').count()) > 0);
+  check('ส่วนแพ็กเกจแสดงผล', (await page.locator('#pricing').count()) > 0);
+  check(
+    'ฟอนต์ Sarabun ถูกใช้',
+    await page.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Sarabun')),
+  );
+  await page.screenshot({ path: path.join(siteRoot, 'landing.png') });
 
-console.log('\n[3] เล่นจริงในฐานะ Free tier');
-await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
-await page.waitForSelector('[data-page-index="0"] canvas', { timeout: 90000 });
-// `canvas.width` is set before pdf.js paints, so waiting on it races the
-// render; `data-rendered` flips only once the page is actually painted.
-await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', { timeout: 90000 });
-const ink = await page.evaluate(() => {
-  const c = document.querySelector('[data-page-index="0"] canvas');
-  const { data } = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height);
-  let n = 0; for (let i = 0; i < data.length; i += 4) if (data[i] < 200) n++;
-  return n / (data.length / 4);
-});
-ok(`pdf.js เรนเดอร์เอกสารได้จากไฟล์สถิต (${(ink * 100).toFixed(2)}% หมึก)`, ink > 0.002, String(ink));
+  section('ไปหน้าทดลองใช้ผ่านปุ่มบน landing');
+  await page.locator('header a:has-text("ลองใช้ทันที")').first().click();
+  await page.waitForURL('**/try/**', { timeout: 30_000 });
+  check('ปุ่มพาไปหน้า /try ได้', page.url().includes(`${BASE_PATH}/try`), page.url());
+  await page.waitForSelector('button:has-text("ใช้เอกสารตัวอย่าง"):not([disabled])', {
+    timeout: 60_000,
+  });
+  check('หน้า /try พร้อมใช้งาน (hydrate สำเร็จ)', true);
 
-const stage = await page.locator('[data-page-index="0"]').boundingBox();
-await page.click('button[title^="กล่องข้อความ"]');
-await page.mouse.click(stage.x + stage.width * 0.4, stage.y + Math.min(stage.height * 0.55, 640));
-await page.waitForSelector('[data-element-id]', { timeout: 20000 });
-const el = page.locator('[data-element-id]').first();
-await el.dblclick();
-await page.waitForSelector('[data-element-id] textarea');
-await page.keyboard.press('Control+A');
-await page.keyboard.type('เล่นจาก GitHub Pages');
-await page.locator('[data-page-index="0"]').click({ position: { x: 8, y: 8 } });
-ok('วางและพิมพ์ข้อความไทยได้', (await el.locator('.element-text').innerText()).includes('เล่นจาก GitHub Pages'));
+  section('เล่นจริงในฐานะ Free tier');
+  await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
+  // `canvas.width` is set before pdf.js paints, so waiting on it races the
+  // render; `data-rendered` flips only once the page is actually painted.
+  await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
+    timeout: 90_000,
+  });
 
-console.log('\n[4] Export จากไฟล์สถิต');
-const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 120000 }), page.click('button:has-text("Export PDF")')]);
-const exported = path.join(siteRoot, 'export.pdf');
-await dl.saveAs(exported);
-const bytes = new Uint8Array(await readFile(exported));
-ok('ดาวน์โหลด PDF ได้', bytes.byteLength > 1000, `${bytes.byteLength} bytes`);
-const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-const doc = await pdfjs.getDocument({ data: bytes, isEvalSupported: false }).promise;
-let text = '';
-for (let i = 1; i <= doc.numPages; i++) text += (await (await doc.getPage(i)).getTextContent()).items.map(x => x.str).join('');
-ok('ไฟล์มีข้อความที่พิมพ์', text.includes('เล่นจาก GitHub Pages'), text.slice(0, 120));
-ok('มีลายน้ำ Free tier', text.includes('MeDF'));
-await page.screenshot({ path: path.join(siteRoot, 'editor.png') });
+  // A blank canvas of the right size is not a rendered page: count the pixels
+  // that are not white.
+  const inkRatio = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-page-index="0"] canvas');
+    const { data } = canvas
+      .getContext('2d', { willReadFrequently: true })
+      .getImageData(0, 0, canvas.width, canvas.height);
+    let inked = 0;
+    for (let index = 0; index < data.length; index += 4) if (data[index] < 200) inked += 1;
+    return inked / (data.length / 4);
+  });
+  check(
+    `pdf.js เรนเดอร์เอกสารได้จากไฟล์สถิต (${(inkRatio * 100).toFixed(2)}% หมึก)`,
+    inkRatio > 0.002,
+    String(inkRatio),
+  );
 
-const real = errors.filter(e => !/favicon|Failed to load resource|ERR_ABORTED/i.test(e));
-ok('ไม่มี error ใน console', real.length === 0, real.slice(0, 2).join(' | '));
-ok('ไม่มี request ที่ตอบ 4xx/5xx', bad.filter(x => !x.includes('favicon')).length === 0, bad.join(', '));
-await b.close();
-fileServer.kill('SIGTERM');
-if (process.env.MEDF_KEEP_STATIC) console.log(`\nไฟล์ผลลัพธ์: ${siteRoot}`);
-else await rm(siteRoot, { recursive: true, force: true });
+  const stage = await page.locator('[data-page-index="0"]').boundingBox();
+  await page.click('button[title^="กล่องข้อความ"]');
+  await page.mouse.click(
+    stage.x + stage.width * 0.4,
+    stage.y + Math.min(stage.height * 0.55, 640),
+  );
+  await page.waitForSelector('[data-element-id]', { timeout: 20_000 });
 
-if (failed) process.exitCode = 1;
-else console.log('\n✅ เว็บสถิตแบบที่ GitHub Pages จะเสิร์ฟ เล่นได้จริง');
+  const element = page.locator('[data-element-id]').first();
+  await element.dblclick();
+  await page.waitForSelector('[data-element-id] textarea');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('เล่นจาก GitHub Pages');
+  await page.locator('[data-page-index="0"]').click({ position: { x: 8, y: 8 } });
+  check(
+    'วางและพิมพ์ข้อความไทยได้',
+    (await element.locator('.element-text').innerText()).includes('เล่นจาก GitHub Pages'),
+  );
+
+  section('Export จากไฟล์สถิต');
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 120_000 }),
+    page.click('button:has-text("Export PDF")'),
+  ]);
+  const exported = path.join(siteRoot, 'export.pdf');
+  await download.saveAs(exported);
+  const bytes = new Uint8Array(await readFile(exported));
+  check('ดาวน์โหลด PDF ได้', bytes.byteLength > 1000, `${bytes.byteLength} bytes`);
+
+  const text = await extractPdfText(bytes);
+  check('ไฟล์มีข้อความที่พิมพ์', text.includes('เล่นจาก GitHub Pages'), text.slice(0, 120));
+  check('มีลายน้ำ Free tier', text.includes('MeDF'));
+  await page.screenshot({ path: path.join(siteRoot, 'editor.png') });
+
+  const realErrors = consoleErrors.filter(
+    (message) => !/favicon|Failed to load resource|ERR_ABORTED/i.test(message),
+  );
+  check('ไม่มี error ใน console', realErrors.length === 0, realErrors.slice(0, 2).join(' | '));
+  check(
+    'ไม่มี request ที่ตอบ 4xx/5xx',
+    badResponses.filter((entry) => !entry.includes('favicon')).length === 0,
+    badResponses.join(', '),
+  );
+} catch (error) {
+  failed = true;
+  console.error(`\n❌ ${error.message}`);
+  console.error('\n--- server log ---\n' + server.output().slice(-1500));
+} finally {
+  await browser?.close().catch(() => undefined);
+  server.stop();
+  if (process.env.MEDF_KEEP_STATIC) console.log(`\nไฟล์ผลลัพธ์: ${siteRoot}`);
+  else await rm(siteRoot, { recursive: true, force: true });
+}
+
+const code = failed ? 1 : report();
+if (code === 0) console.log('   เว็บสถิตแบบที่ GitHub Pages จะเสิร์ฟ เล่นได้จริง');
+process.exitCode = code;

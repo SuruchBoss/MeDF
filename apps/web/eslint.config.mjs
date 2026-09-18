@@ -60,6 +60,48 @@ const config = [
       ],
     },
   },
+
+  /**
+   * Layering. Dependencies point one way — `app/` may use `components/`, which
+   * may use `lib/`, and never the reverse. Without this, a route's concerns
+   * leak into a component and the component stops being reusable (the demo
+   * build reuses the whole editor with no server behind it), or `lib/` picks up
+   * a React import and stops being unit-testable.
+   */
+  {
+    files: ['src/lib/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/components/*', '@/app/*', '**/components/*', '**/app/*'],
+              message:
+                'src/lib ต้องไม่ขึ้นกับ UI — ย้ายตรรกะที่ใช้ร่วมกันมาไว้ใน lib แล้วให้ component เรียกใช้',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/components/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app/*', '**/app/*'],
+              message:
+                'component ต้องไม่ขึ้นกับ route — ส่งสิ่งที่ต้องใช้เข้ามาทาง props แทน',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default config;

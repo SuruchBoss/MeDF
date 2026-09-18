@@ -7,69 +7,41 @@
  * pointer gestures, so it is the one that catches coordinate-space mistakes in
  * the stage.
  */
-import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
-import { existsSync, readdirSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import {
+  createChecker,
+  extractPdfText,
+  findChromium,
+  freePort,
+  loadPlaywright,
+  startNextServer,
+  waitForHttp,
+} from '../../../scripts/test-harness.mjs';
 import { makeSamplePdf } from './make-sample-pdf.mjs';
 
-const require = createRequire(import.meta.url);
 /**
  * The Next.js app directory, resolved from this file rather than from the
  * caller's working directory — these scripts are run from the repository root
- * (`npm run test:api`) as well as from `apps/web`.
+ * (`npm run test:ui`) as well as from `apps/web`.
  */
 const webRoot = path.join(import.meta.dirname, '..');
 
-const PORT = Number(process.env.UI_PORT ?? 41930);
+const PORT = await freePort('UI_PORT');
 const BASE = `http://127.0.0.1:${PORT}`;
 const PASSWORD = 'UiTestPassword123';
 
-let failed = false;
-let passed = 0;
-function check(label, ok, detail = '') {
-  console.log(`  ${ok ? '✓' : '✗'} ${label}${ok || !detail ? '' : ` — ${detail}`}`);
-  if (ok) passed += 1;
-  else failed = true;
-}
-
-function loadPlaywright() {
-  for (const id of ['playwright', 'playwright-core', '/opt/node22/lib/node_modules/playwright']) {
-    try {
-      return require(id);
-    } catch {
-      /* try the next location */
-    }
-  }
-  throw new Error('ไม่พบ playwright — ติดตั้งด้วย `npm install` ที่รากโปรเจกต์');
-}
-
-async function waitForServer(timeoutMs = 90_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      if ((await fetch(`${BASE}/api/health`)).ok) return true;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  }
-  throw new Error('เซิร์ฟเวอร์ไม่ตอบสนอง');
-}
+const { check, report } = createChecker({ name: 'ทดสอบหน้าเว็บ' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-ui-'));
 const samplePath = path.join(dataDir, 'sample-document.pdf');
 await writeFile(samplePath, await makeSamplePdf());
 
-const nextBin = require.resolve('next/dist/bin/next');
-const server = spawn('node', [nextBin, 'start', '-p', String(PORT)], {
+const server = startNextServer({
   cwd: webRoot,
+  port: PORT,
   env: {
-    ...process.env,
-    NODE_ENV: 'production',
     MEDF_DATA_DIR: dataDir,
     MEDF_SESSION_SECRET: 'ui-test-secret-ui-test-secret-ui-test',
     MEDF_BILLING_SANDBOX: '1',
@@ -77,15 +49,12 @@ const server = spawn('node', [nextBin, 'start', '-p', String(PORT)], {
     // This test asserts the behaviour of the pure open-source build.
     MEDF_PRO_DISABLE: '1',
   },
-  stdio: ['ignore', 'pipe', 'pipe'],
 });
-const serverLogs = [];
-server.stdout.on('data', (chunk) => serverLogs.push(String(chunk)));
-server.stderr.on('data', (chunk) => serverLogs.push(String(chunk)));
 
+let failed = false;
 let browser;
 try {
-  await waitForServer();
+  await waitForHttp(`${BASE}/api/health`, { server });
   const { chromium } = loadPlaywright();
   browser = await chromium.launch({
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -393,7 +362,7 @@ try {
   const exported = await readFile(exportedPath);
   check('ดาวน์โหลดไฟล์ PDF สำเร็จ', exported.byteLength > 1000, `${exported.byteLength} bytes`);
 
-  const text = await extractText(new Uint8Array(exported));
+  const text = await extractPdfText(new Uint8Array(exported));
   check('ไฟล์ที่ได้มีข้อความที่พิมพ์ไว้', text.includes('สวัสดีจาก MeDF'), text.slice(0, 300));
   check('ไฟล์ที่ได้ยังมีเนื้อหาต้นฉบับ', text.includes('PAGEMARKER-ONE'));
 
@@ -461,41 +430,12 @@ try {
   failed = true;
   console.error(`\n❌ ${error.message}`);
   console.error(error.stack?.split('\n').slice(1, 4).join('\n') ?? '');
-  console.error('\n--- server log ---\n' + serverLogs.join('').slice(-2500));
+  console.error('\n--- server log ---\n' + server.output().slice(-2500));
 } finally {
   await browser?.close().catch(() => undefined);
-  server.kill('SIGTERM');
+  server.stop();
   await new Promise((resolve) => setTimeout(resolve, 300));
   if (!process.env.MEDF_KEEP_UI_DATA) await rm(dataDir, { recursive: true, force: true });
 }
 
-if (failed) process.exitCode = 1;
-else console.log(`\n✅ ผ่านทั้งหมด ${passed} ข้อ`);
-
-/**
- * Resolves a Chromium binary. Playwright's own download is used when present;
- * otherwise we fall back to a browser the environment preinstalled (CI images
- * commonly set `PLAYWRIGHT_BROWSERS_PATH`).
- */
-function findChromium() {
-  if (process.env.PLAYWRIGHT_CHROMIUM) return process.env.PLAYWRIGHT_CHROMIUM;
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
-  if (!root || !existsSync(root)) return undefined;
-  const candidates = readdirSync(root)
-    .filter((name) => name.startsWith('chromium-'))
-    .map((name) => path.join(root, name, 'chrome-linux', 'chrome'))
-    .filter((candidate) => existsSync(candidate));
-  return candidates[0];
-}
-
-/** Pulls the text layer out of a PDF with pdf.js. */
-async function extractText(bytes) {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const document = await pdfjs.getDocument({ data: bytes, isEvalSupported: false }).promise;
-  const parts = [];
-  for (let index = 1; index <= document.numPages; index += 1) {
-    const content = await (await document.getPage(index)).getTextContent();
-    parts.push(content.items.map((item) => item.str ?? '').join(''));
-  }
-  return parts.join('\n');
-}
+process.exitCode = failed ? 1 : report();
