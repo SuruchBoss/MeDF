@@ -24,11 +24,11 @@ import {
   snapBox,
 } from './geometry';
 import { PdfPageCanvas } from './pdf-page-canvas';
+import { useLatest } from './use-latest';
 import {
   type EditorAction,
   type ElementPatch,
-  type Guide,
-  type Tool,
+  type ViewState,
   createPatcher,
   rotatedPageSize,
   toBaseSpace,
@@ -77,21 +77,36 @@ type Gesture =
       kind: 'marquee';
       start: { x: number; y: number };
       additive: boolean;
+      /**
+       * The rectangle so far. It is per-gesture state, so it lives here rather
+       * than being mirrored out of React state for `pointerup` to read back.
+       */
+      box: Box;
     };
 
+/** How to draw the PDF underneath the overlay. */
+export interface PageCanvasProps {
+  pdf: PDFDocumentProxy | null;
+  /** Device-pixel multiplier; higher when zoomed in. */
+  scale: number;
+  /** False when the page is far outside the viewport. */
+  active: boolean;
+}
+
 interface PageStageProps {
+  /** This page and what sits on it. */
   page: PageState;
   pageIndex: number;
   elements: AnyElement[];
-  zoom: number;
-  tool: Tool;
-  selection: string[];
-  editingId: string | null;
-  guides: Guide[];
+  /**
+   * The shared view state, passed whole rather than unpacked into six props:
+   * it is one object from the reducer, and a stage that took `zoom` and
+   * `selection` separately could be handed a zoom from one render and a
+   * selection from another.
+   */
+  view: ViewState;
+  canvas: PageCanvasProps;
   dispatch: Dispatch<EditorAction>;
-  pdf: PDFDocumentProxy | null;
-  renderScale: number;
-  active: boolean;
   /** Resolves an image element's asset to a renderable URL. */
   assetUrl: (assetId: string) => string;
   onPlaced?: () => void;
@@ -101,34 +116,28 @@ export function PageStage({
   page,
   pageIndex,
   elements,
-  zoom,
-  tool,
-  selection,
-  editingId,
-  guides,
+  view,
+  canvas,
   dispatch,
-  pdf,
-  renderScale,
-  active,
   assetUrl,
   onPlaced,
 }: PageStageProps) {
   const t = useT();
+  const { zoom, tool, selection, editingId } = view;
+  // Alignment guides belong to the page being dragged on, not to every page.
+  const guides = view.activePage === pageIndex ? view.guides : [];
   const boxRef = useRef<HTMLDivElement | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const [marquee, setMarquee] = useState<Box | null>(null);
   const rotated = rotatedPageSize(page);
 
   /**
-   * The window listeners below are attached once per mount. They read the live
-   * page, zoom, elements and marquee from here instead of from their closure,
-   * because those values change on every pointer move — re-subscribing three
-   * listeners per frame would make dragging noticeably worse on long documents.
+   * The window listeners below are attached once per mount, so they read these
+   * from the latest render rather than from their closure. `elements` in
+   * particular changes on every pointer move, and re-subscribing three
+   * listeners per frame is visible on a long document.
    */
-  const liveRef = useRef({ page, zoom, elements, marquee });
-  useEffect(() => {
-    liveRef.current = { page, zoom, elements, marquee };
-  });
+  const liveRef = useLatest({ page, zoom, elements });
 
   /** Pointer position in base page space. */
   const pointToBase = useCallback(
@@ -140,7 +149,7 @@ export function PageStage({
       const v = (event.clientY - rect.top) / liveZoom;
       return toBaseSpace(u, v, livePage);
     },
-    [],
+    [liveRef],
   );
 
   const endGesture = useCallback(() => {
@@ -161,13 +170,14 @@ export function PageStage({
       const point = pointToBase(event);
 
       if (gesture.kind === 'marquee') {
-        const box = {
+        gesture.box = {
           x: Math.min(gesture.start.x, point.x),
           y: Math.min(gesture.start.y, point.y),
           w: Math.abs(point.x - gesture.start.x),
           h: Math.abs(point.y - gesture.start.y),
         };
-        setMarquee(box);
+        // State only so the rectangle paints; the gesture owns the real value.
+        setMarquee(gesture.box);
         return;
       }
 
@@ -251,10 +261,9 @@ export function PageStage({
 
     function handleUp() {
       const gesture = gestureRef.current;
-      const { elements: liveElements, marquee: liveMarquee } = liveRef.current;
-      if (gesture?.kind === 'marquee' && liveMarquee) {
-        const hits = liveElements
-          .filter((element) => !element.locked && boxesIntersect(liveMarquee, element))
+      if (gesture?.kind === 'marquee') {
+        const hits = liveRef.current.elements
+          .filter((element) => !element.locked && boxesIntersect(gesture.box, element))
           .map((element) => element.id);
         dispatch({ type: 'select', ids: hits, additive: gesture.additive });
       }
@@ -269,7 +278,7 @@ export function PageStage({
       window.removeEventListener('pointerup', handleUp);
       window.removeEventListener('pointercancel', handleUp);
     };
-  }, [dispatch, endGesture, pointToBase]);
+  }, [dispatch, endGesture, liveRef, pointToBase]);
 
   function handleBackgroundPointerDown(event: React.PointerEvent) {
     if (event.button !== 0) return;
@@ -293,8 +302,9 @@ export function PageStage({
 
     dispatch({ type: 'activePage', page: pageIndex });
     if (!event.shiftKey) dispatch({ type: 'select', ids: [] });
-    gestureRef.current = { kind: 'marquee', start: point, additive: event.shiftKey };
-    setMarquee({ x: point.x, y: point.y, w: 0, h: 0 });
+    const box = { x: point.x, y: point.y, w: 0, h: 0 };
+    gestureRef.current = { kind: 'marquee', start: point, additive: event.shiftKey, box };
+    setMarquee(box);
   }
 
   function handleElementPointerDown(event: React.PointerEvent, element: AnyElement) {
@@ -394,12 +404,12 @@ export function PageStage({
           }}
         >
           <PdfPageCanvas
-            pdf={pdf}
+            pdf={canvas.pdf}
             sourceIndex={page.source}
             width={page.width}
             height={page.height}
-            renderScale={renderScale}
-            active={active}
+            renderScale={canvas.scale}
+            active={canvas.active}
           />
 
           {elements.map((element) => {
@@ -408,6 +418,11 @@ export function PageStage({
               <div
                 key={element.id}
                 data-element-id={element.id}
+                // Selection is drawn in the chrome layer above, so without
+                // this the DOM does not say which elements are selected —
+                // which the browser tests need, and assistive tech benefits
+                // from too.
+                data-selected={selection.includes(element.id) || undefined}
                 className="absolute"
                 style={{
                   left: element.x,
@@ -567,6 +582,7 @@ export function PageStage({
 
           {marquee ? (
             <div
+              data-marquee=""
               className="absolute border border-brand-500 bg-brand-500/10"
               style={{
                 left: marquee.x * zoom,

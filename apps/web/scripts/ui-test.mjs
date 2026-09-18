@@ -343,8 +343,46 @@ try {
     String(await page.locator('[data-element-id]').count()),
   );
 
+  // --- Marquee selection --------------------------------------------------
+  // The rectangle is per-gesture state held on the gesture object, and
+  // `pointerup` reads it back to decide what was caught — so this covers both
+  // the drawing and the reading.
+  console.log('\n[10] ลากกรอบเลือกหลายชิ้น');
+  await page.click('button[title^="เลือก"]');
+  await page.mouse.click(10, 10); // clear the selection first
+
+  const topLeft = await pointOnPage(0.05, 0.1);
+  const bottomRight = await pointOnPage(0.95, 0.95);
+  await page.mouse.move(topLeft.x, topLeft.y);
+  await page.mouse.down();
+  await page.mouse.move((topLeft.x + bottomRight.x) / 2, (topLeft.y + bottomRight.y) / 2, {
+    steps: 6,
+  });
+  check('กรอบเลือกปรากฏระหว่างลาก', (await page.locator('[data-marquee]').count()) === 1);
+  await page.mouse.move(bottomRight.x, bottomRight.y, { steps: 6 });
+  await page.mouse.up();
+
+  const selectedCount = await page.locator('[data-element-id][data-selected="true"]').count();
+  check(
+    `ลากกรอบแล้วเลือกได้หลายชิ้น (${selectedCount} ชิ้น)`,
+    selectedCount >= 2,
+    String(selectedCount),
+  );
+  check(
+    'แผงคุณสมบัติบอกจำนวนที่เลือก',
+    (await page.getByText(/เลือกอยู่ \d+ ชิ้น/).count()) > 0,
+  );
+
+  // Clicking empty space clears it again.
+  const empty = await pointOnPage(0.5, 0.02);
+  await page.mouse.click(empty.x, empty.y);
+  check(
+    'คลิกที่ว่างแล้วยกเลิกการเลือก',
+    (await page.locator('[data-element-id][data-selected="true"]').count()) === 0,
+  );
+
   // --- Signature ----------------------------------------------------------
-  console.log('\n[10] วาดลายเซ็น');
+  console.log('\n[11] วาดลายเซ็น');
   await page.click('button[title^="ลายเซ็น"]');
   const pad = page.locator('canvas.touch-none');
   await pad.waitFor({ state: 'visible', timeout: 10_000 });
@@ -362,14 +400,14 @@ try {
   check('เพิ่มลายเซ็นเป็นองค์ประกอบใหม่', (await page.locator('[data-element-id]').count()) === 6);
 
   // --- Undo / redo --------------------------------------------------------
-  console.log('\n[11] ย้อนกลับและทำซ้ำ');
+  console.log('\n[12] ย้อนกลับและทำซ้ำ');
   await page.keyboard.press('Control+z');
   check('Ctrl+Z ลบองค์ประกอบล่าสุดออก', (await page.locator('[data-element-id]').count()) === 5);
   await page.keyboard.press('Control+Shift+z');
   check('Ctrl+Shift+Z คืนองค์ประกอบกลับมา', (await page.locator('[data-element-id]').count()) === 6);
 
   // --- Page operations ----------------------------------------------------
-  console.log('\n[12] จัดการหน้าเอกสาร');
+  console.log('\n[13] จัดการหน้าเอกสาร');
   await page.click('button[title="หมุนขวา"]');
   await page.waitForTimeout(400);
   const rotatedStage = await page.locator('[data-page-index="0"]').boundingBox();
@@ -386,7 +424,7 @@ try {
   await page.click('button[title="แสดงหน้านี้"]');
 
   // --- Autosave -----------------------------------------------------------
-  console.log('\n[13] บันทึกอัตโนมัติ');
+  console.log('\n[14] บันทึกอัตโนมัติ');
   await page.waitForFunction(
     () => document.body.innerText.includes('บันทึกแล้ว'),
     { timeout: 20_000 },
@@ -396,7 +434,7 @@ try {
   await page.screenshot({ path: path.join(dataDir, 'editor.png'), fullPage: false });
 
   // --- Export -------------------------------------------------------------
-  console.log('\n[14] Export กลับเป็น PDF');
+  console.log('\n[15] Export กลับเป็น PDF');
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60_000 }),
     page.click('button:has-text("Export PDF")'),
@@ -411,7 +449,7 @@ try {
   check('ไฟล์ที่ได้ยังมีเนื้อหาต้นฉบับ', text.includes('PAGEMARKER-ONE'));
 
   // --- Reload keeps the work ---------------------------------------------
-  console.log('\n[15] เปิดเอกสารใหม่แล้วงานยังอยู่');
+  console.log('\n[16] เปิดเอกสารใหม่แล้วงานยังอยู่');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-element-id]', { timeout: 40_000 });
   check(
@@ -421,7 +459,7 @@ try {
   );
 
   // --- Subscription flow --------------------------------------------------
-  console.log('\n[16] อัปเกรดแพ็กเกจจากหน้าเว็บ');
+  console.log('\n[17] อัปเกรดแพ็กเกจจากหน้าเว็บ');
   await page.goto(`${BASE}/app/billing`, { waitUntil: 'domcontentloaded' });
   await page.click('div.card:has-text("Pro") >> button:has-text("สมัครแพ็กเกจนี้")');
   await page.waitForSelector('text=เปิดใช้แพ็กเกจ Pro เรียบร้อย', { timeout: 30_000 });
@@ -433,7 +471,7 @@ try {
   );
 
   // --- Open-core: this server has no paid module installed ---------------
-  console.log('\n[17] บิลด์โอเพนซอร์สที่ไม่มีโมดูลเสริม');
+  console.log('\n[18] บิลด์โอเพนซอร์สที่ไม่มีโมดูลเสริม');
   // Use the page's own fetch so the member's session cookie is sent.
   const featureReport = await page.evaluate(async () =>
     (await fetch('/api/features')).json(),

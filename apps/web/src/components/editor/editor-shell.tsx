@@ -333,15 +333,9 @@ export function EditorShell({
                         elements={state.doc.overlay.elements.filter(
                           (element) => element.page === index,
                         )}
-                        zoom={state.view.zoom}
-                        tool={state.view.tool}
-                        selection={state.view.selection}
-                        editingId={state.view.editingId}
-                        guides={state.view.activePage === index ? state.view.guides : []}
+                        view={state.view}
+                        canvas={{ pdf: pdf.document, scale: renderScale, active: visible }}
                         dispatch={dispatch}
-                        pdf={pdf.document}
-                        renderScale={renderScale}
-                        active={visible}
                         assetUrl={backend.assetUrl}
                       />
                     </>
