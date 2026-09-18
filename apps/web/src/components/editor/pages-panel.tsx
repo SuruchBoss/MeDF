@@ -7,13 +7,14 @@ import type { PageState } from '@/lib/editor-types';
 import { PdfPageCanvas } from './pdf-page-canvas';
 import type { EditorAction } from './store';
 import { useInView } from './use-in-view';
+import { memo } from 'react';
 import { useT } from '@/lib/i18n/provider';
 
 /** Left rail: page thumbnails with reorder, rotate and hide controls. */
 
 const THUMB_WIDTH = 116;
 
-export function PagesPanel({
+function PagesPanelInner({
   pages,
   activePage,
   elementCounts,
@@ -199,3 +200,10 @@ function IconAction({
     </button>
   );
 }
+
+/**
+ * Memoised: this reads the document's pages and the active index, and nothing
+ * else. Since a view change now leaves the document object alone, zooming or
+ * selecting no longer re-renders every page thumbnail.
+ */
+export const PagesPanel = memo(PagesPanelInner);

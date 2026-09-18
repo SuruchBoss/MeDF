@@ -52,8 +52,22 @@ export interface Guide {
   at: number;
 }
 
-export interface EditorState {
+/**
+ * What gets saved, and the history of it.
+ *
+ * Kept apart from the view below so the difference is a type rather than a
+ * convention: everything here is written to the server, nothing there is.
+ * It also means a zoom or a selection leaves this object's identity alone, so
+ * anything that only reads the document can skip re-rendering.
+ */
+export interface DocumentState {
   overlay: OverlayDoc;
+  past: OverlayDoc[];
+  future: OverlayDoc[];
+}
+
+/** What the member is looking at. Never saved, never undone. */
+export interface ViewState {
   selection: string[];
   activePage: number;
   tool: Tool;
@@ -61,8 +75,11 @@ export interface EditorState {
   /** Element currently being text-edited. */
   editingId: string | null;
   guides: Guide[];
-  past: OverlayDoc[];
-  future: OverlayDoc[];
+}
+
+export interface EditorState {
+  doc: DocumentState;
+  view: ViewState;
 }
 
 export type EditorAction =
@@ -90,21 +107,31 @@ const HISTORY_LIMIT = 80;
 
 export function createInitialState(overlay: OverlayDoc): EditorState {
   return {
-    overlay,
-    selection: [],
-    activePage: 0,
-    tool: 'select',
-    zoom: 1,
-    editingId: null,
-    guides: [],
-    past: [],
-    future: [],
+    doc: { overlay, past: [], future: [] },
+    view: {
+      selection: [],
+      activePage: 0,
+      tool: 'select',
+      zoom: 1,
+      editingId: null,
+      guides: [],
+    },
   };
 }
 
-function pushHistory(state: EditorState): Pick<EditorState, 'past' | 'future'> {
+/** A document change, leaving the view object's identity alone. */
+function withDoc(state: EditorState, doc: Partial<DocumentState>): EditorState {
+  return { view: state.view, doc: { ...state.doc, ...doc } };
+}
+
+/** A view change, leaving the document object's identity alone. */
+function withView(state: EditorState, view: Partial<ViewState>): EditorState {
+  return { doc: state.doc, view: { ...state.view, ...view } };
+}
+
+function pushHistory(state: EditorState): Pick<DocumentState, 'past' | 'future'> {
   return {
-    past: [...state.past, state.overlay].slice(-HISTORY_LIMIT),
+    past: [...state.doc.past, state.doc.overlay].slice(-HISTORY_LIMIT),
     future: [],
   };
 }
@@ -156,16 +183,17 @@ export function createPatcher<T extends AnyElement>(
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'checkpoint':
-      return { ...state, ...pushHistory(state) };
+      return withDoc(state, pushHistory(state));
 
     case 'add': {
-      const elements = [...state.overlay.elements, action.element];
+      const elements = [...state.doc.overlay.elements, action.element];
       return {
-        ...state,
-        ...pushHistory(state),
-        overlay: { ...state.overlay, elements },
-        selection: action.select === false ? state.selection : [action.element.id],
-        tool: 'select',
+        doc: { ...state.doc, ...pushHistory(state), overlay: { ...state.doc.overlay, elements } },
+        view: {
+          ...state.view,
+          selection: action.select === false ? state.view.selection : [action.element.id],
+          tool: 'select',
+        },
       };
     }
 
@@ -173,36 +201,32 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'updateOne': {
       const ids = action.type === 'update' ? action.ids : [action.id];
       const history = action.history ?? true;
-      return {
-        ...state,
+      return withDoc(state, {
         ...(history ? pushHistory(state) : {}),
         overlay: {
-          ...state.overlay,
-          elements: patchElements(state.overlay.elements, ids, action.patch),
+          ...state.doc.overlay,
+          elements: patchElements(state.doc.overlay.elements, ids, action.patch),
         },
-      };
+      });
     }
 
     case 'delete': {
-      const ids = new Set(action.ids ?? state.selection);
+      const ids = new Set(action.ids ?? state.view.selection);
       if (ids.size === 0) return state;
-      const elements = state.overlay.elements.filter(
+      const elements = state.doc.overlay.elements.filter(
         (element) => !ids.has(element.id) || element.locked,
       );
-      if (elements.length === state.overlay.elements.length) return state;
+      if (elements.length === state.doc.overlay.elements.length) return state;
       return {
-        ...state,
-        ...pushHistory(state),
-        overlay: { ...state.overlay, elements },
-        selection: [],
-        editingId: null,
+        doc: { ...state.doc, ...pushHistory(state), overlay: { ...state.doc.overlay, elements } },
+        view: { ...state.view, selection: [], editingId: null },
       };
     }
 
     case 'duplicate': {
-      if (state.selection.length === 0) return state;
-      const selected = state.overlay.elements.filter((element) =>
-        state.selection.includes(element.id),
+      if (state.view.selection.length === 0) return state;
+      const selected = state.doc.overlay.elements.filter((element) =>
+        state.view.selection.includes(element.id),
       );
       const copies = selected.map((element) => ({
         ...element,
@@ -211,35 +235,39 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         y: element.y + 12,
       })) as AnyElement[];
       return {
-        ...state,
-        ...pushHistory(state),
-        overlay: { ...state.overlay, elements: [...state.overlay.elements, ...copies] },
-        selection: copies.map((element) => element.id),
+        doc: {
+          ...state.doc,
+          ...pushHistory(state),
+          overlay: {
+            ...state.doc.overlay,
+            elements: [...state.doc.overlay.elements, ...copies],
+          },
+        },
+        view: { ...state.view, selection: copies.map((element) => element.id) },
       };
     }
 
     case 'select': {
       if (action.additive) {
-        const next = new Set(state.selection);
+        const next = new Set(state.view.selection);
         for (const id of action.ids) {
           if (next.has(id)) next.delete(id);
           else next.add(id);
         }
-        return { ...state, selection: [...next], editingId: null };
+        return withView(state, { selection: [...next], editingId: null });
       }
-      return { ...state, selection: action.ids, editingId: null };
+      return withView(state, { selection: action.ids, editingId: null });
     }
 
     case 'selectAllOnPage':
-      return {
-        ...state,
-        selection: state.overlay.elements
-          .filter((element) => element.page === state.activePage && !element.locked)
+      return withView(state, {
+        selection: state.doc.overlay.elements
+          .filter((element) => element.page === state.view.activePage && !element.locked)
           .map((element) => element.id),
-      };
+      });
 
     case 'reorder': {
-      const elements = [...state.overlay.elements];
+      const elements = [...state.doc.overlay.elements];
       const index = elements.findIndex((element) => element.id === action.id);
       if (index === -1) return state;
       const [element] = elements.splice(index, 1);
@@ -252,101 +280,104 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
               ? Math.min(elements.length, index + 1)
               : Math.max(0, index - 1);
       elements.splice(target, 0, element);
-      return {
-        ...state,
+      return withDoc(state, {
         ...pushHistory(state),
-        overlay: { ...state.overlay, elements },
-      };
+        overlay: { ...state.doc.overlay, elements },
+      });
     }
 
     case 'tool':
-      return { ...state, tool: action.tool, editingId: null };
+      return withView(state, { tool: action.tool, editingId: null });
 
     case 'zoom':
-      return { ...state, zoom: Math.min(4, Math.max(0.2, action.zoom)) };
+      return withView(state, { zoom: Math.min(4, Math.max(0.2, action.zoom)) });
 
     case 'activePage':
-      return { ...state, activePage: action.page };
+      return withView(state, { activePage: action.page });
 
     case 'editing':
-      return { ...state, editingId: action.id };
+      return withView(state, { editingId: action.id });
 
     case 'guides':
-      return { ...state, guides: action.guides };
+      return withView(state, { guides: action.guides });
 
     case 'pageRotate': {
-      const pages = state.overlay.pages.map((page, index) =>
+      const pages = state.doc.overlay.pages.map((page, index) =>
         index === action.index
           ? { ...page, rotation: normalizePageRotation(page.rotation + action.delta) }
           : page,
       );
-      return {
-        ...state,
+      return withDoc(state, {
         ...pushHistory(state),
-        overlay: { ...state.overlay, pages },
-      };
+        overlay: { ...state.doc.overlay, pages },
+      });
     }
 
     case 'pageToggleHidden': {
-      const pages = state.overlay.pages.map((page, index) =>
+      const pages = state.doc.overlay.pages.map((page, index) =>
         index === action.index ? { ...page, hidden: !page.hidden } : page,
       );
       if (pages.every((page) => page.hidden)) return state; // never hide every page
-      return {
-        ...state,
+      return withDoc(state, {
         ...pushHistory(state),
-        overlay: { ...state.overlay, pages },
-      };
+        overlay: { ...state.doc.overlay, pages },
+      });
     }
 
     case 'pageMove': {
       const { index, to } = action;
-      if (index === to || to < 0 || to >= state.overlay.pages.length) return state;
-      const pages = [...state.overlay.pages];
+      if (index === to || to < 0 || to >= state.doc.overlay.pages.length) return state;
+      const pages = [...state.doc.overlay.pages];
       const [page] = pages.splice(index, 1);
       pages.splice(to, 0, page);
 
       // Element page references follow the page they were placed on.
       const remap = new Map<number, number>();
-      state.overlay.pages.forEach((original, originalIndex) => {
+      state.doc.overlay.pages.forEach((original, originalIndex) => {
         remap.set(originalIndex, pages.indexOf(original));
       });
-      const elements = state.overlay.elements.map((element) => ({
+      const elements = state.doc.overlay.elements.map((element) => ({
         ...element,
         page: remap.get(element.page) ?? element.page,
       })) as AnyElement[];
 
       return {
-        ...state,
-        ...pushHistory(state),
-        overlay: { ...state.overlay, pages, elements },
-        activePage: remap.get(state.activePage) ?? state.activePage,
+        doc: {
+          ...state.doc,
+          ...pushHistory(state),
+          overlay: { ...state.doc.overlay, pages, elements },
+        },
+        view: {
+          ...state.view,
+          activePage: remap.get(state.view.activePage) ?? state.view.activePage,
+        },
       };
     }
 
     case 'undo': {
-      const previous = state.past.at(-1);
+      const previous = state.doc.past.at(-1);
       if (!previous) return state;
       return {
-        ...state,
-        overlay: previous,
-        past: state.past.slice(0, -1),
-        future: [state.overlay, ...state.future].slice(0, HISTORY_LIMIT),
-        selection: [],
-        editingId: null,
+        doc: {
+          overlay: previous,
+          past: state.doc.past.slice(0, -1),
+          future: [state.doc.overlay, ...state.doc.future].slice(0, HISTORY_LIMIT),
+        },
+        // The elements that were selected may not exist in the earlier overlay.
+        view: { ...state.view, selection: [], editingId: null },
       };
     }
 
     case 'redo': {
-      const next = state.future[0];
+      const next = state.doc.future[0];
       if (!next) return state;
       return {
-        ...state,
-        overlay: next,
-        past: [...state.past, state.overlay].slice(-HISTORY_LIMIT),
-        future: state.future.slice(1),
-        selection: [],
-        editingId: null,
+        doc: {
+          overlay: next,
+          past: [...state.doc.past, state.doc.overlay].slice(-HISTORY_LIMIT),
+          future: state.doc.future.slice(1),
+        },
+        view: { ...state.view, selection: [], editingId: null },
       };
     }
 

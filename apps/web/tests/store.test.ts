@@ -47,12 +47,17 @@ function overlay(elements: AnyElement[], pages: PageState[] = [page(), page()]):
   return { version: 1, pages, elements };
 }
 
-function stateWith(elements: AnyElement[], pages?: PageState[]): EditorState {
-  return createInitialState(overlay(elements, pages));
+function stateWith(
+  elements: AnyElement[],
+  pages?: PageState[],
+  view: Partial<EditorState['view']> = {},
+): EditorState {
+  const base = createInitialState(overlay(elements, pages));
+  return { ...base, view: { ...base.view, ...view } };
 }
 
 function byId(state: EditorState, id: string): AnyElement {
-  const found = state.overlay.elements.find((element) => element.id === id);
+  const found = state.doc.overlay.elements.find((element) => element.id === id);
   assert.ok(found, `element ${id} is missing`);
   return found;
 }
@@ -60,31 +65,31 @@ function byId(state: EditorState, id: string): AnyElement {
 describe('createInitialState', () => {
   it('starts clean, unselected and without history', () => {
     const state = stateWith([text('a')]);
-    assert.deepEqual(state.selection, []);
-    assert.equal(state.editingId, null);
-    assert.deepEqual(state.past, []);
-    assert.deepEqual(state.future, []);
-    assert.equal(state.tool, 'select');
-    assert.equal(state.zoom, 1);
+    assert.deepEqual(state.view.selection, []);
+    assert.equal(state.view.editingId, null);
+    assert.deepEqual(state.doc.past, []);
+    assert.deepEqual(state.doc.future, []);
+    assert.equal(state.view.tool, 'select');
+    assert.equal(state.view.zoom, 1);
   });
 });
 
 describe('add', () => {
   it('appends the element, selects it and returns to the select tool', () => {
     const state = editorReducer(
-      { ...stateWith([]), tool: 'rect' },
+      stateWith([], undefined, { tool: 'rect' }),
       { type: 'add', element: text('a') },
     );
-    assert.deepEqual(state.overlay.elements.map((element) => element.id), ['a']);
-    assert.deepEqual(state.selection, ['a']);
-    assert.equal(state.tool, 'select');
-    assert.equal(state.past.length, 1, 'adding is one undo step');
+    assert.deepEqual(state.doc.overlay.elements.map((element) => element.id), ['a']);
+    assert.deepEqual(state.view.selection, ['a']);
+    assert.equal(state.view.tool, 'select');
+    assert.equal(state.doc.past.length, 1, 'adding is one undo step');
   });
 
   it('leaves the selection alone when asked not to select', () => {
-    const before = { ...stateWith([text('a')]), selection: ['a'] };
+    const before = stateWith([text('a')], undefined, { selection: ['a'] });
     const after = editorReducer(before, { type: 'add', element: text('b'), select: false });
-    assert.deepEqual(after.selection, ['a']);
+    assert.deepEqual(after.view.selection, ['a']);
   });
 });
 
@@ -118,33 +123,33 @@ describe('update / updateOne', () => {
 
   it('pushes one undo step by default and none with history: false', () => {
     const before = stateWith([text('a')]);
-    assert.equal(editorReducer(before, { type: 'updateOne', id: 'a', patch: { x: 1 } }).past.length, 1);
+    assert.equal(editorReducer(before, { type: 'updateOne', id: 'a', patch: { x: 1 } }).doc.past.length, 1);
     assert.equal(
-      editorReducer(before, { type: 'updateOne', id: 'a', patch: { x: 1 }, history: false }).past.length,
+      editorReducer(before, { type: 'updateOne', id: 'a', patch: { x: 1 }, history: false }).doc.past.length,
       0,
     );
   });
 
   it('does not mutate the previous state, so undo keeps a real snapshot', () => {
     const before = stateWith([text('a')]);
-    const snapshot = structuredClone(before.overlay);
+    const snapshot = structuredClone(before.doc.overlay);
     editorReducer(before, { type: 'updateOne', id: 'a', patch: { x: 999 } });
-    assert.deepEqual(before.overlay, snapshot);
+    assert.deepEqual(before.doc.overlay, snapshot);
   });
 });
 
 describe('delete', () => {
   it('removes the current selection', () => {
-    const before = { ...stateWith([text('a'), text('b')]), selection: ['a'] };
+    const before = stateWith([text('a'), text('b')], undefined, { selection: ['a'] });
     const after = editorReducer(before, { type: 'delete' });
-    assert.deepEqual(after.overlay.elements.map((element) => element.id), ['b']);
-    assert.deepEqual(after.selection, []);
+    assert.deepEqual(after.doc.overlay.elements.map((element) => element.id), ['b']);
+    assert.deepEqual(after.view.selection, []);
   });
 
   it('refuses to delete a locked element', () => {
-    const before = { ...stateWith([text('a', { locked: true })]), selection: ['a'] };
+    const before = stateWith([text('a', { locked: true })], undefined, { selection: ['a'] });
     const after = editorReducer(before, { type: 'delete' });
-    assert.equal(after.overlay.elements.length, 1);
+    assert.equal(after.doc.overlay.elements.length, 1);
   });
 
   it('is a no-op with nothing selected, leaving history untouched', () => {
@@ -154,21 +159,21 @@ describe('delete', () => {
   });
 
   it('is a no-op when only locked elements are selected', () => {
-    const before = { ...stateWith([text('a', { locked: true })]), selection: ['a'] };
-    assert.equal(editorReducer(before, { type: 'delete' }).past.length, 0);
+    const before = stateWith([text('a', { locked: true })], undefined, { selection: ['a'] });
+    assert.equal(editorReducer(before, { type: 'delete' }).doc.past.length, 0);
   });
 });
 
 describe('duplicate', () => {
   it('offsets the copies and selects them', () => {
-    const before = { ...stateWith([text('a')]), selection: ['a'] };
+    const before = stateWith([text('a')], undefined, { selection: ['a'] });
     const after = editorReducer(before, { type: 'duplicate' });
-    assert.equal(after.overlay.elements.length, 2);
-    const copy = after.overlay.elements[1];
+    assert.equal(after.doc.overlay.elements.length, 2);
+    const copy = after.doc.overlay.elements[1];
     assert.notEqual(copy.id, 'a', 'a copy needs a fresh id');
     assert.equal(copy.x, 10 + 12);
     assert.equal(copy.y, 20 + 12);
-    assert.deepEqual(after.selection, [copy.id]);
+    assert.deepEqual(after.view.selection, [copy.id]);
   });
 
   it('is a no-op with nothing selected', () => {
@@ -179,34 +184,35 @@ describe('duplicate', () => {
 
 describe('select', () => {
   it('replaces the selection by default', () => {
-    const before = { ...stateWith([text('a'), text('b')]), selection: ['a'] };
-    assert.deepEqual(editorReducer(before, { type: 'select', ids: ['b'] }).selection, ['b']);
+    const before = stateWith([text('a'), text('b')], undefined, { selection: ['a'] });
+    assert.deepEqual(editorReducer(before, { type: 'select', ids: ['b'] }).view.selection, ['b']);
   });
 
   it('toggles in additive mode', () => {
-    const before = { ...stateWith([text('a'), text('b')]), selection: ['a'] };
+    const before = stateWith([text('a'), text('b')], undefined, { selection: ['a'] });
     const added = editorReducer(before, { type: 'select', ids: ['b'], additive: true });
-    assert.deepEqual(added.selection, ['a', 'b']);
+    assert.deepEqual(added.view.selection, ['a', 'b']);
     const removed = editorReducer(added, { type: 'select', ids: ['a'], additive: true });
-    assert.deepEqual(removed.selection, ['b']);
+    assert.deepEqual(removed.view.selection, ['b']);
   });
 
   it('leaves text editing whenever the selection changes', () => {
-    const before = { ...stateWith([text('a')]), editingId: 'a' };
-    assert.equal(editorReducer(before, { type: 'select', ids: [] }).editingId, null);
+    const before = stateWith([text('a')], undefined, { editingId: 'a' });
+    assert.equal(editorReducer(before, { type: 'select', ids: [] }).view.editingId, null);
   });
 
   it('selectAllOnPage takes the active page only, skipping locked elements', () => {
-    const before = {
-      ...stateWith([text('a'), text('b', { page: 1 }), text('c', { locked: true })]),
-      activePage: 0,
-    };
-    assert.deepEqual(editorReducer(before, { type: 'selectAllOnPage' }).selection, ['a']);
+    const before = stateWith(
+      [text('a'), text('b', { page: 1 }), text('c', { locked: true })],
+      undefined,
+      { activePage: 0 },
+    );
+    assert.deepEqual(editorReducer(before, { type: 'selectAllOnPage' }).view.selection, ['a']);
   });
 });
 
 describe('reorder', () => {
-  const ids = (state: EditorState) => state.overlay.elements.map((element) => element.id);
+  const ids = (state: EditorState) => state.doc.overlay.elements.map((element) => element.id);
   const three = () => stateWith([text('a'), text('b'), text('c')]);
 
   it('moves an element to the front and to the back', () => {
@@ -233,9 +239,9 @@ describe('reorder', () => {
 describe('zoom', () => {
   it('clamps to the supported range', () => {
     const before = stateWith([]);
-    assert.equal(editorReducer(before, { type: 'zoom', zoom: 99 }).zoom, 4);
-    assert.equal(editorReducer(before, { type: 'zoom', zoom: 0.01 }).zoom, 0.2);
-    assert.equal(editorReducer(before, { type: 'zoom', zoom: 1.5 }).zoom, 1.5);
+    assert.equal(editorReducer(before, { type: 'zoom', zoom: 99 }).view.zoom, 4);
+    assert.equal(editorReducer(before, { type: 'zoom', zoom: 0.01 }).view.zoom, 0.2);
+    assert.equal(editorReducer(before, { type: 'zoom', zoom: 1.5 }).view.zoom, 1.5);
   });
 });
 
@@ -243,23 +249,23 @@ describe('page actions', () => {
   it('rotates a page in quarter turns and wraps at 360', () => {
     let state = stateWith([], [page(), page()]);
     state = editorReducer(state, { type: 'pageRotate', index: 0, delta: 90 });
-    assert.equal(state.overlay.pages[0].rotation, 90);
-    assert.equal(state.overlay.pages[1].rotation, 0, 'other pages are untouched');
+    assert.equal(state.doc.overlay.pages[0].rotation, 90);
+    assert.equal(state.doc.overlay.pages[1].rotation, 0, 'other pages are untouched');
     for (let turn = 0; turn < 3; turn += 1) {
       state = editorReducer(state, { type: 'pageRotate', index: 0, delta: 90 });
     }
-    assert.equal(state.overlay.pages[0].rotation, 0);
+    assert.equal(state.doc.overlay.pages[0].rotation, 0);
   });
 
   it('rotates backwards past zero', () => {
     const state = editorReducer(stateWith([]), { type: 'pageRotate', index: 0, delta: -90 });
-    assert.equal(state.overlay.pages[0].rotation, 270);
+    assert.equal(state.doc.overlay.pages[0].rotation, 270);
   });
 
   it('hides and shows a page', () => {
     const hidden = editorReducer(stateWith([]), { type: 'pageToggleHidden', index: 0 });
-    assert.equal(hidden.overlay.pages[0].hidden, true);
-    assert.equal(editorReducer(hidden, { type: 'pageToggleHidden', index: 0 }).overlay.pages[0].hidden, false);
+    assert.equal(hidden.doc.overlay.pages[0].hidden, true);
+    assert.equal(editorReducer(hidden, { type: 'pageToggleHidden', index: 0 }).doc.overlay.pages[0].hidden, false);
   });
 
   it('refuses to hide the last visible page', () => {
@@ -268,11 +274,15 @@ describe('page actions', () => {
   });
 
   it('moves a page and remaps the elements that sit on it', () => {
-    const before = stateWith([text('a', { page: 0 }), text('b', { page: 1 })], [page(), page(), page()]);
-    const after = editorReducer({ ...before, activePage: 0 }, { type: 'pageMove', index: 0, to: 2 });
+    const before = stateWith(
+      [text('a', { page: 0 }), text('b', { page: 1 })],
+      [page(), page(), page()],
+      { activePage: 0 },
+    );
+    const after = editorReducer(before, { type: 'pageMove', index: 0, to: 2 });
     assert.equal(byId(after, 'a').page, 2, 'the element follows its page');
     assert.equal(byId(after, 'b').page, 0, 'the page that shifted up takes its elements with it');
-    assert.equal(after.activePage, 2, 'the view follows the page the member was on');
+    assert.equal(after.view.activePage, 2, 'the view follows the page the member was on');
   });
 
   it('is a no-op for an out-of-range or unchanged move', () => {
@@ -305,7 +315,7 @@ describe('undo / redo', () => {
       state = editorReducer(state, { type: 'updateOne', id: 'a', patch: { x: step }, history: false });
     }
     assert.equal(byId(state, 'a').x, 20);
-    assert.equal(state.past.length, 1);
+    assert.equal(state.doc.past.length, 1);
     assert.equal(byId(editorReducer(state, { type: 'undo' }), 'a').x, 10);
   });
 
@@ -313,9 +323,9 @@ describe('undo / redo', () => {
     const start = stateWith([text('a')]);
     const moved = editorReducer(start, { type: 'updateOne', id: 'a', patch: { x: 500 } });
     const undone = editorReducer(moved, { type: 'undo' });
-    assert.equal(undone.future.length, 1);
+    assert.equal(undone.doc.future.length, 1);
     const branched = editorReducer(undone, { type: 'updateOne', id: 'a', patch: { x: 7 } });
-    assert.deepEqual(branched.future, [], 'editing after undo abandons the redo branch');
+    assert.deepEqual(branched.doc.future, [], 'editing after undo abandons the redo branch');
   });
 
   it('caps the history so a long session cannot grow without bound', () => {
@@ -323,16 +333,78 @@ describe('undo / redo', () => {
     for (let step = 0; step < 200; step += 1) {
       state = editorReducer(state, { type: 'updateOne', id: 'a', patch: { x: step } });
     }
-    assert.equal(state.past.length, 80);
+    assert.equal(state.doc.past.length, 80);
     assert.equal(byId(state, 'a').x, 199, 'the newest edit survives');
   });
 
   it('clears the selection, because undone elements may be gone', () => {
-    const start = { ...stateWith([text('a')]), selection: ['a'] };
+    const start = stateWith([text('a')], undefined, { selection: ['a'] });
     const deleted = editorReducer(start, { type: 'delete' });
     const undone = editorReducer(deleted, { type: 'undo' });
-    assert.deepEqual(undone.selection, []);
-    assert.equal(undone.overlay.elements.length, 1);
+    assert.deepEqual(undone.view.selection, []);
+    assert.equal(undone.doc.overlay.elements.length, 1);
+  });
+});
+
+describe('document and view are independent', () => {
+  /**
+   * The point of the split: a view change must leave the document object
+   * alone, and an edit must leave the view object alone. Anything memoised on
+   * one half then skips re-rendering when only the other moved.
+   */
+  const VIEW_ONLY: EditorAction[] = [
+    { type: 'zoom', zoom: 2 },
+    { type: 'activePage', page: 1 },
+    { type: 'tool', tool: 'rect' },
+    { type: 'select', ids: ['a'] },
+    { type: 'selectAllOnPage' },
+    { type: 'editing', id: 'a' },
+    { type: 'guides', guides: [{ axis: 'x', at: 10 }] },
+  ];
+
+  const DOC_ONLY: EditorAction[] = [
+    { type: 'updateOne', id: 'a', patch: { x: 1 } },
+    { type: 'checkpoint' },
+    { type: 'reorder', id: 'a', to: 'front' },
+    { type: 'pageRotate', index: 0, delta: 90 },
+    { type: 'pageToggleHidden', index: 1 },
+  ];
+
+  it('keeps the document object when only the view changes', () => {
+    const start = stateWith([text('a'), text('b')], undefined, { selection: ['a'] });
+    for (const action of VIEW_ONLY) {
+      assert.equal(
+        editorReducer(start, action).doc,
+        start.doc,
+        `${action.type} replaced the document, so the whole tree would re-render`,
+      );
+    }
+  });
+
+  it('keeps the view object when only the document changes', () => {
+    const start = stateWith([text('a'), text('b')], undefined, { selection: ['a'] });
+    for (const action of DOC_ONLY) {
+      assert.equal(
+        editorReducer(start, action).view,
+        start.view,
+        `${action.type} replaced the view for no reason`,
+      );
+    }
+  });
+
+  it('changes both only where an edit genuinely moves the selection', () => {
+    // Adding selects the new element; deleting clears the selection; moving a
+    // page follows it. Those are the three that legitimately touch both.
+    const withSelection = stateWith([text('a')], undefined, { selection: ['a'] });
+    for (const action of [
+      { type: 'add', element: text('b') },
+      { type: 'delete' },
+      { type: 'duplicate' },
+    ] as EditorAction[]) {
+      const after = editorReducer(withSelection, action);
+      assert.notEqual(after.doc, withSelection.doc, `${action.type} should change the document`);
+      assert.notEqual(after.view, withSelection.view, `${action.type} should change the view`);
+    }
   });
 });
 
@@ -354,15 +426,15 @@ describe('overlay identity', () => {
     ];
     for (const action of edits) {
       assert.notEqual(
-        editorReducer(start, action).overlay,
-        start.overlay,
+        editorReducer(start, action).doc.overlay,
+        start.doc.overlay,
         `${action.type} reused the overlay object, so a save would be missed`,
       );
     }
   });
 
   it('keeps the same overlay object for a view-only change', () => {
-    const start = { ...stateWith([text('a')]), selection: ['a'] };
+    const start = stateWith([text('a')], undefined, { selection: ['a'] });
     const viewActions: EditorAction[] = [
       { type: 'zoom', zoom: 2 },
       { type: 'activePage', page: 1 },
@@ -375,8 +447,8 @@ describe('overlay identity', () => {
     ];
     for (const action of viewActions) {
       assert.equal(
-        editorReducer(start, action).overlay,
-        start.overlay,
+        editorReducer(start, action).doc.overlay,
+        start.doc.overlay,
         `${action.type} replaced the overlay, so the document would look unsaved`,
       );
     }
@@ -387,7 +459,7 @@ describe('overlay identity', () => {
     const moved = editorReducer(start, { type: 'updateOne', id: 'a', patch: { x: 5 } });
     const undone = editorReducer(moved, { type: 'undo' });
     // Undoing back to a saved state must look saved again, not merely equal.
-    assert.equal(undone.overlay, start.overlay);
+    assert.equal(undone.doc.overlay, start.doc.overlay);
   });
 });
 

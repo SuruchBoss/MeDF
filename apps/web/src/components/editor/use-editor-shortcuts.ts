@@ -53,8 +53,8 @@ export function useEditorShortcuts({
   pickImage,
   openSignaturePad,
 }: ShortcutOptions) {
-  const { editingId, zoom } = state;
-  const selectionCount = state.selection.length;
+  const { editingId, zoom } = state.view;
+  const selectionCount = state.view.selection.length;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

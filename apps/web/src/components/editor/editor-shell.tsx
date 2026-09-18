@@ -75,25 +75,25 @@ export function EditorShell({
   // Bitmap resolution is stepped, so small zoom changes do not re-rasterise.
   const renderScale = useMemo(() => {
     const dpr = typeof window === 'undefined' ? 1 : Math.min(2, window.devicePixelRatio || 1);
-    return Math.min(3, Math.max(1, Math.ceil(state.zoom * dpr * 2) / 2));
-  }, [state.zoom]);
+    return Math.min(3, Math.max(1, Math.ceil(state.view.zoom * dpr * 2) / 2));
+  }, [state.view.zoom]);
 
-  const activePageState = state.overlay.pages[state.activePage];
+  const activePageState = state.doc.overlay.pages[state.view.activePage];
   const selection = useMemo(
-    () => state.overlay.elements.filter((element) => state.selection.includes(element.id)),
-    [state.overlay.elements, state.selection],
+    () => state.doc.overlay.elements.filter((element) => state.view.selection.includes(element.id)),
+    [state.doc.overlay.elements, state.view.selection],
   );
   const pageElements = useMemo(
-    () => state.overlay.elements.filter((element) => element.page === state.activePage),
-    [state.overlay.elements, state.activePage],
+    () => state.doc.overlay.elements.filter((element) => element.page === state.view.activePage),
+    [state.doc.overlay.elements, state.view.activePage],
   );
   const elementCounts = useMemo(() => {
     const counts: Record<number, number> = {};
-    for (const element of state.overlay.elements) {
+    for (const element of state.doc.overlay.elements) {
       counts[element.page] = (counts[element.page] ?? 0) + 1;
     }
     return counts;
-  }, [state.overlay.elements]);
+  }, [state.doc.overlay.elements]);
 
   // --- Persistence, zoom and shortcuts -------------------------------------
 
@@ -103,14 +103,14 @@ export function EditorShell({
 
   const { save, saving, savedAt, dirty, markSaved, setRevision } = useAutosave({
     backend,
-    overlay: state.overlay,
+    overlay: state.doc.overlay,
     revision,
     onError: reportError,
   });
 
   const { fitMode, toggleFit } = useZoomFit({
-    pages: state.overlay.pages,
-    activePage: state.activePage,
+    pages: state.doc.overlay.pages,
+    activePage: state.view.activePage,
     container: scrollEl,
     dispatch,
   });
@@ -143,12 +143,12 @@ export function EditorShell({
         height: prepared.height,
       });
 
-      const page = state.overlay.pages[state.activePage];
+      const page = state.doc.overlay.pages[state.view.activePage];
       if (!page) return;
       dispatch({
         type: 'add',
         element: createImageElement({
-          page: state.activePage,
+          page: state.view.activePage,
           assetId: result.assetId,
           naturalWidth: prepared.width,
           naturalHeight: prepared.height,
@@ -170,7 +170,7 @@ export function EditorShell({
     setNotice(null);
     try {
       const { blob, skippedAssets: skipped } = await backend.exportPdf({
-        overlay: state.overlay,
+        overlay: state.doc.overlay,
         title,
       });
       const url = URL.createObjectURL(blob);
@@ -180,7 +180,7 @@ export function EditorShell({
       link.click();
       URL.revokeObjectURL(url);
 
-      markSaved(state.overlay);
+      markSaved(state.doc.overlay);
       setNotice({
         tone: 'info',
         message:
@@ -228,10 +228,10 @@ export function EditorShell({
         saving={saving}
         exporting={exporting}
         savedAt={savedAt}
-        tool={state.tool}
-        zoom={state.zoom}
-        canUndo={state.past.length > 0}
-        canRedo={state.future.length > 0}
+        tool={state.view.tool}
+        zoom={state.view.zoom}
+        canUndo={state.doc.past.length > 0}
+        canRedo={state.doc.future.length > 0}
         dispatch={dispatch}
         onPickImage={() => fileInputRef.current?.click()}
         onDrawSignature={() => setSignatureOpen(true)}
@@ -280,8 +280,8 @@ export function EditorShell({
 
       <div className="flex min-h-0 flex-1">
         <PagesPanel
-          pages={state.overlay.pages}
-          activePage={state.activePage}
+          pages={state.doc.overlay.pages}
+          activePage={state.view.activePage}
           elementCounts={elementCounts}
           dispatch={dispatch}
           pdf={pdf.document}
@@ -309,7 +309,7 @@ export function EditorShell({
               className="mx-auto flex flex-col items-center"
               style={{ gap: PAGE_GAP }}
             >
-              {state.overlay.pages.map((page, index) => (
+              {state.doc.overlay.pages.map((page, index) => (
                 <PageSlot
                   key={`${page.source}-${index}`}
                   index={index}
@@ -324,20 +324,20 @@ export function EditorShell({
                       <div className="mb-1.5 text-center text-[11px] font-medium text-ink-500">
                         {t('shell.pageOf', {
                           number: index + 1,
-                          total: state.overlay.pages.length,
+                          total: state.doc.overlay.pages.length,
                         })}
                       </div>
                       <PageStage
                         page={page}
                         pageIndex={index}
-                        elements={state.overlay.elements.filter(
+                        elements={state.doc.overlay.elements.filter(
                           (element) => element.page === index,
                         )}
-                        zoom={state.zoom}
-                        tool={state.tool}
-                        selection={state.selection}
-                        editingId={state.editingId}
-                        guides={state.activePage === index ? state.guides : []}
+                        zoom={state.view.zoom}
+                        tool={state.view.tool}
+                        selection={state.view.selection}
+                        editingId={state.view.editingId}
+                        guides={state.view.activePage === index ? state.view.guides : []}
                         dispatch={dispatch}
                         pdf={pdf.document}
                         renderScale={renderScale}
@@ -356,7 +356,7 @@ export function EditorShell({
           selection={selection}
           pageElements={pageElements}
           page={activePageState}
-          pageIndex={state.activePage}
+          pageIndex={state.view.activePage}
           dispatch={dispatch}
         />
       </div>
@@ -366,12 +366,12 @@ export function EditorShell({
           onCancel={() => setSignatureOpen(false)}
           onConfirm={(result) => {
             setSignatureOpen(false);
-            const page = state.overlay.pages[state.activePage];
+            const page = state.doc.overlay.pages[state.view.activePage];
             if (!page) return;
             dispatch({
               type: 'add',
               element: createSignatureElement({
-                page: state.activePage,
+                page: state.view.activePage,
                 strokes: result.strokes,
                 color: result.color,
                 strokeWidth: result.strokeWidth,
