@@ -1,0 +1,63 @@
+name: Build Windows installer
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      portable:
+        description: 'สร้างเวอร์ชัน portable ด้วย'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Package for Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the web bundle
+        run: npm run desktop:build
+
+      - name: Package installer and portable build
+        run: npm run dist:win:all --workspace medf-desktop
+        env:
+          # Set CSC_LINK / CSC_KEY_PASSWORD as repository secrets to sign the
+          # executables; unsigned builds trigger a SmartScreen warning.
+          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: medf-windows-installer
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest.yml
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Attach installers to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+          generate_release_notes: true
