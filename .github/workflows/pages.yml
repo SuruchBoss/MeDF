@@ -44,8 +44,11 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
         with:
-          # Turns Pages on for the repository if it is not enabled yet, so the
-          # first deploy needs no manual visit to Settings → Pages.
+          # Tries to turn Pages on. The default GITHUB_TOKEN is usually not
+          # allowed to create a Pages site ("Resource not accessible by
+          # integration"), so the first run still needs a repository admin to
+          # set Settings → Pages → Source = GitHub Actions once. After that,
+          # every run works unattended.
           enablement: true
 
       - name: Build

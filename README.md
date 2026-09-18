@@ -148,8 +148,9 @@ npm run demo:build    # ได้ไฟล์สถิตที่ apps/demo/out
 npm run test:static   # ทดสอบแบบที่ Pages จะเสิร์ฟจริง
 ```
 
-เปิดใช้ครั้งแรกต้องตั้ง **Settings → Pages → Source = GitHub Actions** หนึ่งครั้ง
-รายละเอียดอยู่ใน [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md)
+เปิดใช้ครั้งแรกต้องให้ผู้มีสิทธิ์ admin ตั้ง **Settings → Pages → Source = GitHub Actions**
+หนึ่งครั้ง (token ของ Actions ไม่มีสิทธิ์สร้าง Pages site เอง) หลังจากนั้นทุก push เข้า `main`
+จะ deploy ให้อัตโนมัติ — รายละเอียดอยู่ใน [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md)
 
 ---
 

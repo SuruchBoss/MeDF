@@ -13,6 +13,13 @@ import { createRequire } from 'node:module';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+/**
+ * The Next.js app directory, resolved from this file rather than from the
+ * caller's working directory — these scripts are run from the repository root
+ * (`npm run test:api`) as well as from `apps/web`.
+ */
+const webRoot = path.join(import.meta.dirname, '..');
+
 import { makeSamplePdf } from './make-sample-pdf.mjs';
 
 const PORT = Number(process.env.SMOKE_PORT ?? 41730);
@@ -123,7 +130,7 @@ async function main() {
   // Resolve the Next CLI through Node so workspace hoisting does not matter.
   const nextBin = createRequire(import.meta.url).resolve('next/dist/bin/next');
   const server = spawn('node', [nextBin, 'start', '-p', String(PORT)], {
-    cwd: process.cwd(),
+    cwd: webRoot,
     env: {
       ...process.env,
       NODE_ENV: 'production',
