@@ -12,16 +12,6 @@ const config = [
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
 
       /**
-       * Keep `src/` loadable by Node's strip-only TypeScript support.
-       *
-       * The unit tests import these modules directly with `node --test` — no
-       * bundler, no transpiler, no dependency. That only works while the source
-       * sticks to syntax Node can erase. These three constructs emit runtime
-       * code instead, so they would silently cut a module off from unit
-       * testing. Plain fields, `as const` objects and ES modules cover every
-       * case we have.
-       */
-      /**
        * The native modals cannot be styled or translated, block the main
        * thread while they are open, and are invisible to the browser tests.
        * `useDialog()` from `@/components/ui/dialog` replaces all three.
@@ -42,6 +32,16 @@ const config = [
         })),
       ],
 
+      /**
+       * Keep `src/` loadable by Node's strip-only TypeScript support.
+       *
+       * The unit tests import these modules directly with `node --test` — no
+       * bundler, no transpiler, no dependency. That only works while the source
+       * sticks to syntax Node can erase. These three constructs emit runtime
+       * code instead, so they would silently cut a module off from unit
+       * testing. Plain fields, `as const` objects and ES modules cover every
+       * case we have.
+       */
       'no-restricted-syntax': [
         'error',
         {

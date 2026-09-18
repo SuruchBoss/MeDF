@@ -217,12 +217,16 @@ MeDF/
 │   ├── public/fonts/             # ฟอนต์ Sarabun (ใช้ทั้งบนจอและฝังใน PDF)
 │   └── scripts/                  # เทสต์ end-to-end และสคริปต์ build
 ├── desktop/                      # เชลล์ Electron + ตัวติดตั้ง Windows
-├── scripts/                      # guard โค้ดชั้นที่ชำระเงิน · git hooks · scaffold
-└── docs/                         # สถาปัตยกรรม · open core · เว็บเดโม · Windows · การ deploy
+├── scripts/                      # guard โค้ดชั้นที่ชำระเงิน · git hooks · scaffold · test harness
+└── docs/                         # สถาปัตยกรรม · มาตรฐานโค้ด · open core · เว็บเดโม · Windows · deploy
 ```
 
 อ่านที่มาที่ไปของการออกแบบ (ระบบพิกัด 3 ชั้น, ชั้นข้อมูล, ขั้นตอน export)
 ได้ที่ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+
+ก่อนส่งโค้ดเข้ามา อ่าน [`docs/CODE_STANDARDS.md`](docs/CODE_STANDARDS.md) —
+เป็นข้อตกลงการเขียนโค้ดของโปรเจกต์ พร้อมเหตุผลของแต่ละข้อ
+(กฎที่ตรวจได้ด้วยเครื่องถูกใส่ไว้ใน lint และ CI แล้ว)
 
 ---
 
