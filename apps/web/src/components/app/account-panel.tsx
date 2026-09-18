@@ -6,11 +6,15 @@ import { Icon, Spinner } from '@/components/icons';
 import { ApiError, apiFetch } from '@/lib/client/fetcher';
 import type { PublicUser } from '@/lib/auth';
 import { formatBytes, formatDate } from '@/lib/format';
-import { PLANS, formatLimit } from '@/lib/plans';
+import { formatCount } from '@/lib/i18n/format';
+import { useLocale, useT } from '@/lib/i18n/provider';
+import { PLANS } from '@/lib/plans';
 import type { UsageSummary } from '@/lib/quota';
 
 export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSummary }) {
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,7 +33,7 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
       setNewPassword('');
       setNotice({
         tone: 'info',
-        message: 'เปลี่ยนรหัสผ่านเรียบร้อย ระบบจะออกจากระบบทุกอุปกรณ์เพื่อความปลอดภัย',
+        message: t('account.passwordChanged'),
       });
       // The session cookie was invalidated by the password change.
       window.setTimeout(() => {
@@ -39,7 +43,7 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
     } catch (error) {
       setNotice({
         tone: 'error',
-        message: error instanceof ApiError ? error.message : 'เปลี่ยนรหัสผ่านไม่สำเร็จ',
+        message: error instanceof ApiError ? error.message : t('account.passwordFailed'),
       });
     } finally {
       setBusy(false);
@@ -50,14 +54,17 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
     <div className="container-page grid gap-6 lg:grid-cols-2">
       <div className="space-y-6">
         <div className="card p-6">
-          <h1 className="text-lg font-bold text-ink-900">บัญชีของฉัน</h1>
+          <h1 className="text-lg font-bold text-ink-900">{t('account.title')}</h1>
           <dl className="mt-4 space-y-3 text-sm">
             {[
-              ['ชื่อที่ใช้แสดง', user.name],
-              ['อีเมล', user.email],
-              ['สิทธิ์การใช้งาน', user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก'],
-              ['สมัครเมื่อ', formatDate(user.createdAt)],
-              ['แพ็กเกจ', PLANS[user.plan].name],
+              [t('account.name'), user.name],
+              [t('account.email'), user.email],
+              [
+                t('account.role'),
+                user.role === 'admin' ? t('account.roleAdmin') : t('account.roleMember'),
+              ],
+              [t('account.joined'), formatDate(user.createdAt)],
+              [t('account.plan'), PLANS[user.plan].name],
             ].map(([label, value]) => (
               <div key={label} className="flex justify-between gap-4 border-b border-ink-100 pb-2.5">
                 <dt className="text-ink-500">{label}</dt>
@@ -68,16 +75,25 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
         </div>
 
         <div className="card p-6">
-          <h2 className="text-lg font-bold text-ink-900">การใช้งานเดือนนี้</h2>
+          <h2 className="text-lg font-bold text-ink-900">{t('account.usageTitle')}</h2>
           <dl className="mt-4 space-y-3 text-sm">
             {[
-              ['เอกสารที่เก็บไว้', `${usage.documents} / ${formatLimit(usage.maxDocuments)}`],
               [
-                'Export แล้ว',
-                `${usage.exportsThisMonth} / ${formatLimit(usage.exportsPerMonth)} ครั้ง`,
+                t('account.storedDocuments'),
+                t('account.exportsOf', {
+                  used: usage.documents,
+                  limit: formatCount(usage.maxDocuments, locale) ?? t('common.unlimited'),
+                }),
               ],
-              ['พื้นที่ที่ใช้', formatBytes(usage.storageBytes)],
-              ['ลายน้ำบนไฟล์', usage.watermark ? 'มี' : 'ไม่มี'],
+              [
+                t('account.exported'),
+                t('account.exportsOf', {
+                  used: usage.exportsThisMonth,
+                  limit: formatCount(usage.exportsPerMonth, locale) ?? t('common.unlimited'),
+                }),
+              ],
+              [t('account.storageUsed'), formatBytes(usage.storageBytes)],
+              [t('account.watermark'), usage.watermark ? t('common.yes') : t('common.no')],
             ].map(([label, value]) => (
               <div key={label} className="flex justify-between gap-4 border-b border-ink-100 pb-2.5">
                 <dt className="text-ink-500">{label}</dt>
@@ -89,15 +105,15 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
       </div>
 
       <div className="card h-fit p-6">
-        <h2 className="text-lg font-bold text-ink-900">เปลี่ยนรหัสผ่าน</h2>
+        <h2 className="text-lg font-bold text-ink-900">{t('account.changePassword')}</h2>
         <p className="mt-1 text-sm text-ink-500">
-          เมื่อเปลี่ยนรหัสผ่าน ทุกอุปกรณ์ที่เข้าสู่ระบบอยู่จะถูกออกจากระบบทันที
+          {t('account.passwordNote')}
         </p>
 
         <form onSubmit={changePassword} className="mt-5 space-y-4">
           <div>
             <label className="label" htmlFor="currentPassword">
-              รหัสผ่านปัจจุบัน
+              {t('account.currentPassword')}
             </label>
             <input
               id="currentPassword"
@@ -111,7 +127,7 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
           </div>
           <div>
             <label className="label" htmlFor="newPassword">
-              รหัสผ่านใหม่
+              {t('account.newPassword')}
             </label>
             <input
               id="newPassword"
@@ -140,7 +156,7 @@ export function AccountPanel({ user, usage }: { user: PublicUser; usage: UsageSu
 
           <button type="submit" className="btn-primary w-full" disabled={busy}>
             {busy ? <Spinner size={16} /> : <Icon name="shield" size={16} />}
-            บันทึกรหัสผ่านใหม่
+            {t('account.savePassword')}
           </button>
         </form>
       </div>

@@ -1,7 +1,13 @@
 /**
  * Plan catalogue. Shared by the marketing pages, the billing screens and the
  * server-side quota checks, so pricing only ever lives in one place.
+ *
+ * The copy is message keys, not text: the same table drives both languages,
+ * and the compiler rejects a key that has no translation. Plan *names* stay as
+ * they are — Free, Pro and Team read the same either way.
  */
+
+import type { MessageKey } from './i18n';
 
 export type PlanId = 'free' | 'pro' | 'team';
 export type BillingInterval = 'monthly' | 'yearly';
@@ -26,11 +32,11 @@ export interface PlanLimits {
 export interface Plan {
   id: PlanId;
   name: string;
-  tagline: string;
+  tagline: MessageKey;
   price: Record<BillingInterval, number>;
   currency: 'THB';
   limits: PlanLimits;
-  features: string[];
+  features: MessageKey[];
   highlight?: boolean;
 }
 
@@ -38,7 +44,7 @@ export const PLANS: Record<PlanId, Plan> = {
   free: {
     id: 'free',
     name: 'Free',
-    tagline: 'ทดลองใช้ฟรี ไม่มีกำหนดหมดอายุ',
+    tagline: 'plan.free.tagline',
     price: { monthly: 0, yearly: 0 },
     currency: 'THB',
     limits: {
@@ -51,16 +57,16 @@ export const PLANS: Record<PlanId, Plan> = {
       prioritySupport: false,
     },
     features: [
-      'เก็บเอกสารได้ 3 ไฟล์',
-      'อัปโหลด PDF ไม่เกิน 10 MB / 20 หน้า',
-      'Export 10 ครั้งต่อเดือน (มีลายน้ำ MeDF)',
-      'เครื่องมือแก้ไขครบ: ข้อความ รูปภาพ รูปทรง ลายเซ็น',
+      'plan.free.feature.documents',
+      'plan.free.feature.upload',
+      'plan.free.feature.exports',
+      'plan.free.feature.tools',
     ],
   },
   pro: {
     id: 'pro',
     name: 'Pro',
-    tagline: 'สำหรับฟรีแลนซ์และงานเอกสารประจำวัน',
+    tagline: 'plan.pro.tagline',
     price: { monthly: 249, yearly: 2490 },
     currency: 'THB',
     limits: {
@@ -73,18 +79,18 @@ export const PLANS: Record<PlanId, Plan> = {
       prioritySupport: false,
     },
     features: [
-      'เก็บเอกสารได้ 200 ไฟล์',
-      'อัปโหลด PDF ไม่เกิน 50 MB / 300 หน้า',
-      'Export ไม่จำกัด และไม่มีลายน้ำ',
-      'รูปภาพคุณภาพสูง + ฝังฟอนต์ไทย',
-      'จัดการหน้า: สลับลำดับ หมุน ลบหน้า',
+      'plan.pro.feature.documents',
+      'plan.pro.feature.upload',
+      'plan.pro.feature.exports',
+      'plan.pro.feature.images',
+      'plan.pro.feature.pages',
     ],
     highlight: true,
   },
   team: {
     id: 'team',
     name: 'Team',
-    tagline: 'สำหรับทีมและองค์กรที่ใช้งานหนัก',
+    tagline: 'plan.team.tagline',
     price: { monthly: 690, yearly: 6900 },
     currency: 'THB',
     limits: {
@@ -97,11 +103,11 @@ export const PLANS: Record<PlanId, Plan> = {
       prioritySupport: true,
     },
     features: [
-      'ทุกอย่างในแพ็กเกจ Pro',
-      'เก็บเอกสารได้ 2,000 ไฟล์',
-      'อัปโหลด PDF ไม่เกิน 200 MB / 2,000 หน้า',
-      'พื้นที่เก็บเทมเพลตขององค์กร',
-      'ซัพพอร์ตแบบ priority',
+      'plan.team.feature.everything',
+      'plan.team.feature.documents',
+      'plan.team.feature.upload',
+      'plan.team.feature.templates',
+      'plan.team.feature.support',
     ],
   },
 };
@@ -126,16 +132,4 @@ export function yearlySavingPercent(plan: Plan): number {
   const monthlyTotal = plan.price.monthly * 12;
   if (monthlyTotal === 0) return 0;
   return Math.round(((monthlyTotal - plan.price.yearly) / monthlyTotal) * 100);
-}
-
-export function formatTHB(amount: number): string {
-  return new Intl.NumberFormat('th-TH', {
-    style: 'currency',
-    currency: 'THB',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-export function formatLimit(value: number): string {
-  return Number.isFinite(value) ? new Intl.NumberFormat('th-TH').format(value) : 'ไม่จำกัด';
 }

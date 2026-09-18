@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
+import { formatMoney } from '@/lib/i18n/format';
+import { useLocale, useT } from '@/lib/i18n/provider';
 import {
   type BillingInterval,
   type PlanId,
   PLAN_ORDER,
   PLANS,
-  formatTHB,
   yearlySavingPercent,
 } from '@/lib/plans';
 
@@ -32,6 +33,8 @@ export function PricingTable({
   demo = false,
   tryHref = '/try',
 }: PricingTableProps) {
+  const t = useT();
+  const locale = useLocale();
   const [interval, setInterval] = useState<BillingInterval>('monthly');
   const saving = yearlySavingPercent(PLANS.pro);
 
@@ -41,7 +44,7 @@ export function PricingTable({
         <div
           className="inline-flex rounded-xl border border-ink-200 bg-white p-1"
           role="group"
-          aria-label="รอบการชำระเงิน"
+          aria-label={t('pricing.billingCycle')}
         >
           {(['monthly', 'yearly'] as BillingInterval[]).map((option) => (
             <button
@@ -55,7 +58,9 @@ export function PricingTable({
                   : 'text-ink-600 hover:text-ink-900'
               }`}
             >
-              {option === 'monthly' ? 'รายเดือน' : `รายปี · ประหยัด ${saving}%`}
+              {option === 'monthly'
+                ? t('pricing.monthly')
+                : t('pricing.yearly', { percent: saving })}
             </button>
           ))}
         </div>
@@ -78,31 +83,33 @@ export function PricingTable({
               {plan.highlight ? (
                 <span className="badge absolute -top-3 left-6 bg-brand-600 text-white">
                   <Icon name="star" size={12} />
-                  แนะนำ
+                  {t('pricing.recommended')}
                 </span>
               ) : null}
               {isCurrent ? (
                 <span className="badge absolute -top-3 right-6 bg-emerald-600 text-white">
-                  แพ็กเกจปัจจุบัน
+                  {t('pricing.currentPlan')}
                 </span>
               ) : null}
 
               <h3 className="text-lg font-bold text-ink-900">{plan.name}</h3>
-              <p className="mt-1 text-sm text-ink-500">{plan.tagline}</p>
+              <p className="mt-1 text-sm text-ink-500">{t(plan.tagline)}</p>
 
               <div className="mt-5 flex items-baseline gap-1.5">
                 <span className="text-3xl font-extrabold tracking-tight text-ink-900">
-                  {price === 0 ? 'ฟรี' : formatTHB(price)}
+                  {price === 0 ? t('pricing.free') : formatMoney(price, locale)}
                 </span>
                 {price > 0 ? (
                   <span className="text-sm text-ink-400">
-                    / {interval === 'monthly' ? 'เดือน' : 'ปี'}
+                    / {interval === 'monthly' ? t('pricing.perMonth') : t('pricing.perYear')}
                   </span>
                 ) : null}
               </div>
               {price > 0 && interval === 'yearly' ? (
                 <p className="mt-1 text-xs text-emerald-600">
-                  เท่ากับ {formatTHB(Math.round(price / 12))} ต่อเดือน
+                  {t('pricing.perMonthEquivalent', {
+                    amount: formatMoney(Math.round(price / 12), locale),
+                  })}
                 </p>
               ) : null}
 
@@ -110,7 +117,7 @@ export function PricingTable({
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex gap-2.5 text-sm text-ink-600">
                     <Icon name="check" size={16} className="mt-0.5 shrink-0 text-brand-600" />
-                    <span>{feature}</span>
+                    <span>{t(feature)}</span>
                   </li>
                 ))}
               </ul>
@@ -119,11 +126,11 @@ export function PricingTable({
                 {onChoose ? (
                   isCurrent ? (
                     <button type="button" className="btn-secondary w-full" disabled>
-                      กำลังใช้แพ็กเกจนี้
+                      {t('pricing.onThisPlan')}
                     </button>
                   ) : planId === 'free' ? (
                     <p className="text-center text-xs text-ink-400">
-                      ยกเลิกแพ็กเกจแบบชำระเงินเพื่อกลับมาใช้ Free
+                      {t('pricing.downgradeNote')}
                     </p>
                   ) : (
                     <button
@@ -133,7 +140,9 @@ export function PricingTable({
                       disabled={busy}
                     >
                       {busy ? <Spinner size={16} /> : null}
-                      {currentPlan && currentPlan !== 'free' ? 'เปลี่ยนเป็นแพ็กเกจนี้' : 'สมัครแพ็กเกจนี้'}
+                      {currentPlan && currentPlan !== 'free'
+                        ? t('pricing.changeToThis')
+                        : t('pricing.subscribe')}
                     </button>
                   )
                 ) : (
@@ -153,11 +162,11 @@ export function PricingTable({
                   >
                     {demo
                       ? planId === 'free'
-                        ? 'ลองใช้ทันที'
-                        : 'ลองเครื่องมือก่อน'
+                        ? t('nav.tryNow')
+                        : t('pricing.tryTools')
                       : planId === 'free'
-                        ? 'เริ่มใช้ฟรี'
-                        : `เลือก ${plan.name}`}
+                        ? t('pricing.startFree')
+                        : t('pricing.choosePlan', { plan: plan.name })}
                   </Link>
                 )}
               </div>
@@ -167,9 +176,7 @@ export function PricingTable({
       </div>
 
       <p className="mt-6 text-center text-xs text-ink-400">
-        {demo
-          ? 'หน้านี้เป็นเดโมสาธารณะ ยังไม่เปิดรับสมัครสมาชิก · ติดตั้งเซิร์ฟเวอร์เองได้จากซอร์สโค้ด'
-          : 'ราคารวมภาษีมูลค่าเพิ่มแล้ว · ยกเลิกได้ทุกเมื่อ และใช้งานได้ถึงสิ้นรอบบิลที่จ่ายไว้'}
+        {demo ? t('pricing.demoNote') : t('pricing.taxNote')}
       </p>
     </div>
   );

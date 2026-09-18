@@ -10,7 +10,10 @@ import type { PublicUser } from '@/lib/auth';
 import type { InvoiceRecord } from '@/lib/db';
 import type { FeatureAvailability } from '@/lib/features';
 import { formatDate, formatDateTime } from '@/lib/format';
-import { type BillingInterval, type PlanId, PLANS, formatTHB } from '@/lib/plans';
+import type { MessageKey } from '@/lib/i18n';
+import { formatMoney } from '@/lib/i18n/format';
+import { useLocale, useT } from '@/lib/i18n/provider';
+import { type BillingInterval, type PlanId, PLANS } from '@/lib/plans';
 
 /**
  * Subscription management. Works against whichever provider the server has
@@ -18,11 +21,11 @@ import { type BillingInterval, type PlanId, PLANS, formatTHB } from '@/lib/plans
  * the desktop build.
  */
 
-const STATUS_LABEL: Record<string, string> = {
-  active: 'ใช้งานอยู่',
-  trialing: 'ช่วงทดลองใช้',
-  canceled: 'ยกเลิกแล้ว (ใช้ได้ถึงสิ้นรอบบิล)',
-  past_due: 'ค้างชำระ',
+const STATUS_LABEL: Record<string, MessageKey> = {
+  active: 'billing.status.active',
+  trialing: 'billing.status.trialing',
+  canceled: 'billing.status.canceled',
+  past_due: 'billing.status.past_due',
 };
 
 export function BillingPanel({
@@ -39,6 +42,8 @@ export function BillingPanel({
   features: FeatureAvailability[];
 }) {
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
   const dialog = useDialog();
   const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
   const [busyAction, setBusyAction] = useState<'cancel' | 'resume' | null>(null);
@@ -62,13 +67,13 @@ export function BillingPanel({
       }
       setNotice({
         tone: 'info',
-        message: `เปิดใช้แพ็กเกจ ${PLANS[planId].name} เรียบร้อย (โหมดทดลองระบบชำระเงิน)`,
+        message: t('billing.subscribedSandbox', { plan: PLANS[planId].name }),
       });
       router.refresh();
     } catch (error) {
       setNotice({
         tone: 'error',
-        message: error instanceof ApiError ? error.message : 'เริ่มการสมัครไม่สำเร็จ',
+        message: error instanceof ApiError ? error.message : t('billing.startFailed'),
       });
     } finally {
       setBusyPlan(null);
@@ -78,11 +83,11 @@ export function BillingPanel({
   async function runAction(action: 'cancel' | 'resume') {
     if (action === 'cancel') {
       const confirmed = await dialog.confirm({
-        title: 'ยกเลิกการสมัครสมาชิกหรือไม่?',
+        title: t('billing.cancelConfirm'),
         message:
-          'คุณจะยังใช้งานแพ็กเกจปัจจุบันได้จนถึงสิ้นรอบบิลที่ชำระไว้ หลังจากนั้นบัญชีจะกลับไปเป็นแพ็กเกจ Free',
-        confirmLabel: 'ยกเลิกการสมัคร',
-        cancelLabel: 'ใช้ต่อ',
+          t('billing.cancelWarning'),
+        confirmLabel: t('billing.cancel'),
+        cancelLabel: t('billing.cancelKeep'),
         tone: 'danger',
       });
       if (!confirmed) return;
@@ -95,14 +100,14 @@ export function BillingPanel({
         tone: 'info',
         message:
           action === 'cancel'
-            ? 'ยกเลิกเรียบร้อย — ใช้งานได้จนถึงสิ้นรอบบิลปัจจุบัน'
-            : 'กลับมาต่ออายุอัตโนมัติเรียบร้อย',
+            ? t('billing.cancelDone')
+            : t('billing.resumeDone'),
       });
       router.refresh();
     } catch (error) {
       setNotice({
         tone: 'error',
-        message: error instanceof ApiError ? error.message : 'ดำเนินการไม่สำเร็จ',
+        message: error instanceof ApiError ? error.message : t('billing.actionFailed'),
       });
     } finally {
       setBusyAction(null);
@@ -112,10 +117,10 @@ export function BillingPanel({
   return (
     <div className="container-page space-y-8">
       <header>
-        <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">การสมัครสมาชิก</h1>
-        <p className="mt-1 text-sm text-ink-500">
-          จัดการแพ็กเกจ ดูประวัติการชำระเงิน และเปลี่ยนแผนได้ทุกเมื่อ
-        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">
+          {t('billing.title')}
+        </h1>
+        <p className="mt-1 text-sm text-ink-500">{t('billing.intro')}</p>
       </header>
 
       {notice ? (
@@ -135,16 +140,13 @@ export function BillingPanel({
       {mode === 'sandbox' ? (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Icon name="shield" size={17} className="mt-0.5 shrink-0" />
-          <p>
-            ระบบนี้กำลังใช้ <strong>โหมดทดลองระบบชำระเงิน</strong> — เปลี่ยนแพ็กเกจได้ทันทีโดยไม่มีการเรียกเก็บเงินจริง
-            ผู้ดูแลระบบเปิดการชำระเงินจริงได้โดยตั้งค่า <code className="rounded bg-amber-100 px-1">STRIPE_SECRET_KEY</code>
-          </p>
+          <p>{t('billing.sandboxNotice')}</p>
         </div>
       ) : null}
 
       {mode === 'disabled' ? (
         <div className="rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm text-ink-600">
-          ระบบชำระเงินยังไม่ได้เปิดใช้งานบนเซิร์ฟเวอร์นี้ กรุณาติดต่อผู้ดูแลระบบเพื่ออัปเกรดแพ็กเกจ
+          {t('billing.disabled')}
         </div>
       ) : null}
 
@@ -152,7 +154,7 @@ export function BillingPanel({
       <div className="card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs text-ink-500">แพ็กเกจปัจจุบัน</p>
+            <p className="text-xs text-ink-500">{t('billing.currentPlan')}</p>
             <div className="mt-1 flex items-center gap-2">
               <h2 className="text-xl font-bold text-ink-900">{plan.name}</h2>
               <span
@@ -164,19 +166,19 @@ export function BillingPanel({
                       : 'bg-amber-50 text-amber-700'
                 }`}
               >
-                {STATUS_LABEL[user.planStatus] ?? user.planStatus}
+                {STATUS_LABEL[user.planStatus] ? t(STATUS_LABEL[user.planStatus]) : user.planStatus}
               </span>
             </div>
             <p className="mt-2 text-sm text-ink-600">
               {paid
-                ? `${formatTHB(plan.price[user.planInterval ?? 'monthly'])} / ${
-                    user.planInterval === 'yearly' ? 'ปี' : 'เดือน'
+                ? `${formatMoney(plan.price[user.planInterval ?? 'monthly'], locale)} / ${
+                    user.planInterval === 'yearly' ? t('pricing.perYear') : t('pricing.perMonth')
                   }`
-                : 'ใช้งานฟรี ไม่มีค่าใช้จ่าย'}
+                : t('billing.free')}
             </p>
             {user.currentPeriodEnd ? (
               <p className="mt-1 text-xs text-ink-500">
-                {user.cancelAtPeriodEnd ? 'สิ้นสุดการใช้งาน' : 'ต่ออายุอัตโนมัติ'}{' '}
+                {user.cancelAtPeriodEnd ? t('billing.endsOn') : t('billing.renewsOn')}{' '}
                 {formatDate(user.currentPeriodEnd)}
               </p>
             ) : null}
@@ -192,7 +194,7 @@ export function BillingPanel({
                   disabled={busyAction != null}
                 >
                   {busyAction === 'resume' ? <Spinner size={16} /> : <Icon name="rotate" size={16} />}
-                  ต่ออายุอีกครั้ง
+                  {t('billing.resume')}
                 </button>
               ) : (
                 <button
@@ -202,7 +204,7 @@ export function BillingPanel({
                   disabled={busyAction != null}
                 >
                   {busyAction === 'cancel' ? <Spinner size={16} /> : null}
-                  ยกเลิกการสมัคร
+                  {t('billing.cancel')}
                 </button>
               )}
             </div>
@@ -213,7 +215,7 @@ export function BillingPanel({
           {plan.features.map((feature) => (
             <li key={feature} className="flex gap-2 text-sm text-ink-600">
               <Icon name="check" size={15} className="mt-0.5 shrink-0 text-brand-600" />
-              {feature}
+              {t(feature)}
             </li>
           ))}
         </ul>
@@ -223,9 +225,12 @@ export function BillingPanel({
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
           <Icon name="star" size={17} />
           <p className="flex-1">
-            คุณเลือกแพ็กเกจ <strong>{PLANS[preselect.plan].name}</strong> แบบ
-            {preselect.interval === 'yearly' ? 'รายปี' : 'รายเดือน'} —{' '}
-            {formatTHB(PLANS[preselect.plan].price[preselect.interval])}
+            {t('billing.preselect', {
+              plan: PLANS[preselect.plan].name,
+              interval:
+                preselect.interval === 'yearly' ? t('pricing.perYear') : t('pricing.perMonth'),
+              price: formatMoney(PLANS[preselect.plan].price[preselect.interval], locale),
+            })}
           </p>
           <button
             type="button"
@@ -234,14 +239,14 @@ export function BillingPanel({
             disabled={busyPlan != null || mode === 'disabled'}
           >
             {busyPlan === preselect.plan ? <Spinner size={15} /> : null}
-            ยืนยันการสมัคร
+            {t('billing.confirmSubscribe')}
           </button>
         </div>
       ) : null}
 
       {/* Plan chooser */}
       <section>
-        <h2 className="text-lg font-bold text-ink-900">เปลี่ยนแพ็กเกจ</h2>
+        <h2 className="text-lg font-bold text-ink-900">{t('billing.changePlan')}</h2>
         <div className="mt-5">
           <PricingTable
             signedIn
@@ -254,10 +259,8 @@ export function BillingPanel({
 
       {/* Feature availability */}
       <section>
-        <h2 className="text-lg font-bold text-ink-900">ฟีเจอร์ที่ใช้ได้</h2>
-        <p className="mt-1 text-sm text-ink-500">
-          ฟีเจอร์หลักของ MeDF เป็นโอเพนซอร์สและใช้ได้ทุกแพ็กเกจ · ฟีเจอร์เสริมจะเปิดให้ใช้เมื่อแพ็กเกจถึงและเซิร์ฟเวอร์ติดตั้งโมดูลเสริมไว้
-        </p>
+        <h2 className="text-lg font-bold text-ink-900">{t('billing.featuresTitle')}</h2>
+        <p className="mt-1 text-sm text-ink-500">{t('billing.featuresIntro')}</p>
         <ul className="card mt-4 divide-y divide-ink-100">
           {features.map((feature) => (
             <li key={feature.key} className="flex items-start gap-3 px-5 py-3.5">
@@ -272,7 +275,9 @@ export function BillingPanel({
                 <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink-900">
                   {feature.label}
                   {feature.source === 'private' ? (
-                    <span className="badge bg-brand-50 text-brand-700">ฟีเจอร์เสริม</span>
+                    <span className="badge bg-brand-50 text-brand-700">
+                      {t('billing.featureAddon')}
+                    </span>
                   ) : null}
                   {feature.plan !== 'free' ? (
                     <span className="badge bg-ink-100 text-ink-600">{PLANS[feature.plan].name}</span>
@@ -282,10 +287,10 @@ export function BillingPanel({
               </div>
               <span className="shrink-0 text-xs text-ink-400">
                 {feature.available
-                  ? 'ใช้ได้'
+                  ? t('billing.featureAvailable')
                   : feature.reason === 'not_installed'
-                    ? 'ยังไม่ได้ติดตั้งบนเซิร์ฟเวอร์นี้'
-                    : `ต้องใช้แพ็กเกจ ${PLANS[feature.plan].name}`}
+                    ? t('billing.featureNotInstalled')
+                    : t('billing.featureNeedsPlan', { plan: PLANS[feature.plan].name })}
               </span>
             </li>
           ))}
@@ -294,19 +299,19 @@ export function BillingPanel({
 
       {/* Invoices */}
       <section>
-        <h2 className="text-lg font-bold text-ink-900">ประวัติการชำระเงิน</h2>
+        <h2 className="text-lg font-bold text-ink-900">{t('billing.invoicesTitle')}</h2>
         {invoices.length === 0 ? (
-          <div className="card mt-4 p-6 text-sm text-ink-500">ยังไม่มีรายการชำระเงิน</div>
+          <div className="card mt-4 p-6 text-sm text-ink-500">{t('billing.invoicesEmpty')}</div>
         ) : (
           <div className="card mt-4 overflow-x-auto">
             <table className="w-full min-w-[34rem] text-sm">
               <thead>
                 <tr className="border-b border-ink-200 text-left text-xs text-ink-500">
-                  <th className="px-4 py-3 font-semibold">วันที่</th>
-                  <th className="px-4 py-3 font-semibold">แพ็กเกจ</th>
-                  <th className="px-4 py-3 font-semibold">รอบบิล</th>
-                  <th className="px-4 py-3 font-semibold">จำนวน</th>
-                  <th className="px-4 py-3 font-semibold">ช่องทาง</th>
+                  <th className="px-4 py-3 font-semibold">{t('billing.date')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('billing.plan')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('billing.cycle')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('billing.amount')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('billing.channel')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -317,11 +322,15 @@ export function BillingPanel({
                       {PLANS[invoice.plan].name}
                     </td>
                     <td className="px-4 py-3 text-ink-600">
-                      {invoice.interval === 'yearly' ? 'รายปี' : 'รายเดือน'}
+                      {invoice.interval === 'yearly'
+                        ? t('pricing.perYear')
+                        : t('pricing.perMonth')}
                     </td>
-                    <td className="px-4 py-3 text-ink-900">{formatTHB(invoice.amount)}</td>
+                    <td className="px-4 py-3 text-ink-900">
+                      {formatMoney(invoice.amount, locale)}
+                    </td>
                     <td className="px-4 py-3 text-ink-500">
-                      {invoice.provider === 'stripe' ? 'Stripe' : 'ทดลองระบบ'}
+                      {invoice.provider === 'stripe' ? 'Stripe' : t('billing.providerSandbox')}
                     </td>
                   </tr>
                 ))}

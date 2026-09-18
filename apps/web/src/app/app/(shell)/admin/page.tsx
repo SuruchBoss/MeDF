@@ -4,8 +4,9 @@ import { requireUser } from '@/lib/auth';
 import { readDb } from '@/lib/db';
 import { billingMode } from '@/lib/billing';
 import { formatBytes, formatDate } from '@/lib/format';
-import { PLANS, formatTHB } from '@/lib/plans';
-import { getTranslator } from '@/lib/i18n/server';
+import { formatMoney } from '@/lib/i18n/format';
+import { getLocale, getTranslator } from '@/lib/i18n/server';
+import { PLANS } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,10 @@ export default async function AdminPage() {
   const user = await requireUser();
   if (user.role !== 'admin') notFound();
 
+  const t = await getTranslator();
+  const locale = await getLocale();
+  const mode = billingMode();
+
   const db = await readDb();
   const revenue = db.invoices
     .filter((invoice) => invoice.status === 'paid')
@@ -29,19 +34,28 @@ export default async function AdminPage() {
   return (
     <div className="container-page space-y-6">
       <header>
-        <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">ผู้ดูแลระบบ</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">{t('admin.title')}</h1>
         <p className="mt-1 text-sm text-ink-500">
-          ภาพรวมสมาชิกและการใช้งานของเซิร์ฟเวอร์นี้ · ระบบชำระเงิน:{' '}
-          {billingMode() === 'stripe' ? 'Stripe' : billingMode() === 'sandbox' ? 'โหมดทดลอง' : 'ปิดใช้งาน'}
+          {t('admin.intro', {
+            mode:
+              mode === 'stripe'
+                ? 'Stripe'
+                : mode === 'sandbox'
+                  ? t('admin.billingSandbox')
+                  : t('admin.billingDisabled'),
+          })}
         </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-4">
         {[
-          ['สมาชิกทั้งหมด', String(members.length)],
-          ['สมาชิกแบบชำระเงิน', String(members.filter((member) => member.plan !== 'free').length)],
-          ['เอกสารในระบบ', String(db.documents.length)],
-          ['รายรับรวม', formatTHB(revenue)],
+          [t('admin.totalMembers'), String(members.length)],
+          [
+            t('admin.paidMembers'),
+            String(members.filter((member) => member.plan !== 'free').length),
+          ],
+          [t('admin.documentsInSystem'), String(db.documents.length)],
+          [t('admin.revenue'), formatMoney(revenue, locale)],
         ].map(([label, value]) => (
           <div key={label} className="card p-5">
             <p className="text-xs text-ink-500">{label}</p>
@@ -54,11 +68,11 @@ export default async function AdminPage() {
         <table className="w-full min-w-[46rem] text-sm">
           <thead>
             <tr className="border-b border-ink-200 text-left text-xs text-ink-500">
-              <th className="px-4 py-3 font-semibold">สมาชิก</th>
-              <th className="px-4 py-3 font-semibold">แพ็กเกจ</th>
-              <th className="px-4 py-3 font-semibold">สถานะ</th>
-              <th className="px-4 py-3 font-semibold">เอกสาร</th>
-              <th className="px-4 py-3 font-semibold">สมัครเมื่อ</th>
+              <th className="px-4 py-3 font-semibold">{t('admin.member')}</th>
+              <th className="px-4 py-3 font-semibold">{t('admin.plan')}</th>
+              <th className="px-4 py-3 font-semibold">{t('admin.status')}</th>
+              <th className="px-4 py-3 font-semibold">{t('admin.documents')}</th>
+              <th className="px-4 py-3 font-semibold">{t('admin.joined')}</th>
             </tr>
           </thead>
           <tbody>
@@ -73,10 +87,10 @@ export default async function AdminPage() {
                   <td className="px-4 py-3 text-ink-700">{PLANS[member.plan].name}</td>
                   <td className="px-4 py-3 text-ink-600">
                     {member.planStatus}
-                    {member.cancelAtPeriodEnd ? ' (จะยกเลิก)' : ''}
+                    {member.cancelAtPeriodEnd ? t('admin.willCancel') : ''}
                   </td>
                   <td className="px-4 py-3 text-ink-600">
-                    {owned.length} ไฟล์ ·{' '}
+                    {t('admin.filesAndSize', { count: owned.length })} ·{' '}
                     {formatBytes(owned.reduce((total, doc) => total + doc.sizeBytes, 0))}
                   </td>
                   <td className="px-4 py-3 text-ink-500">{formatDate(member.createdAt)}</td>
@@ -88,7 +102,7 @@ export default async function AdminPage() {
       </div>
 
       <p className="text-xs text-ink-400">
-        พื้นที่จัดเก็บที่ใช้ทั้งหมด {formatBytes(storage)} · ข้อมูลทั้งหมดอยู่ในโฟลเดอร์ข้อมูลของเซิร์ฟเวอร์นี้
+        {t('admin.storageNote', { size: formatBytes(storage) })}
       </p>
     </div>
   );

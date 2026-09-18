@@ -5,27 +5,67 @@ import { Icon } from '@/components/icons';
 import { PricingTable } from '@/components/marketing/pricing-table';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { SiteHeader } from '@/components/marketing/site-header';
-import { type Plan, PLANS, PLAN_ORDER, formatLimit } from '@/lib/plans';
+import type { Locale, MessageKey, Translate } from '@/lib/i18n';
+import { formatCount } from '@/lib/i18n/format';
+import { getLocale, getTranslator } from '@/lib/i18n/server';
+import { type Plan, PLANS, PLAN_ORDER } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'แพ็กเกจและราคา',
-  description: 'เปรียบเทียบแพ็กเกจ Free, Pro และ Team ของ MeDF พร้อมโควตาการใช้งานแต่ละแบบ',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslator();
+  return { title: t('pricingPage.title'), description: t('pricingPage.description') };
+}
 
-const COMPARISON: { label: string; value: (plan: Plan) => string }[] = [
-  { label: 'จำนวนเอกสารที่เก็บได้', value: (plan) => `${formatLimit(plan.limits.maxDocuments)} ไฟล์` },
-  { label: 'ขนาดไฟล์ต่อการอัปโหลด', value: (plan) => `${plan.limits.maxUploadMb} MB` },
-  { label: 'จำนวนหน้าต่อเอกสาร', value: (plan) => `${formatLimit(plan.limits.maxPages)} หน้า` },
-  { label: 'Export ต่อเดือน', value: (plan) => `${formatLimit(plan.limits.exportsPerMonth)} ครั้ง` },
-  { label: 'ลายน้ำบนไฟล์ที่ export', value: (plan) => (plan.limits.watermark ? 'มี' : 'ไม่มี') },
-  { label: 'รูปภาพคุณภาพสูง', value: (plan) => (plan.limits.highQualityImages ? 'รองรับ' : 'บีบอัด') },
-  { label: 'ซัพพอร์ตแบบ priority', value: (plan) => (plan.limits.prioritySupport ? 'มี' : '—') },
+/** One row of the comparison table, rendered per plan. */
+interface ComparisonRow {
+  label: MessageKey;
+  value: (plan: Plan, t: Translate, locale: Locale) => string;
+}
+
+/** `formatCount` returns null for an unlimited allowance; the word is ours. */
+function count(value: number, t: Translate, locale: Locale): string {
+  return formatCount(value, locale) ?? t('common.unlimited');
+}
+
+const COMPARISON: ComparisonRow[] = [
+  {
+    label: 'pricingPage.row.documents',
+    value: (plan, t, locale) =>
+      t('pricingPage.row.documentsValue', { count: count(plan.limits.maxDocuments, t, locale) }),
+  },
+  { label: 'pricingPage.row.uploadSize', value: (plan) => `${plan.limits.maxUploadMb} MB` },
+  {
+    label: 'pricingPage.row.pages',
+    value: (plan, t, locale) =>
+      t('pricingPage.row.pagesValue', { count: count(plan.limits.maxPages, t, locale) }),
+  },
+  {
+    label: 'pricingPage.row.exports',
+    value: (plan, t, locale) =>
+      t('pricingPage.row.exportsValue', { count: count(plan.limits.exportsPerMonth, t, locale) }),
+  },
+  {
+    label: 'pricingPage.row.watermark',
+    value: (plan, t) => (plan.limits.watermark ? t('common.yes') : t('common.no')),
+  },
+  {
+    label: 'pricingPage.row.images',
+    value: (plan, t) =>
+      plan.limits.highQualityImages
+        ? t('pricingPage.row.imagesFull')
+        : t('pricingPage.row.imagesCompressed'),
+  },
+  {
+    label: 'pricingPage.row.support',
+    value: (plan, t) => (plan.limits.prioritySupport ? t('common.yes') : '—'),
+  },
 ];
 
 export default async function PricingPage() {
   const user = await getCurrentUser();
+  const t = await getTranslator();
+  const locale = await getLocale();
 
   return (
     <div className="flex min-h-full flex-col">
@@ -34,10 +74,10 @@ export default async function PricingPage() {
       <main className="flex-1">
         <section className="border-b border-ink-200 bg-gradient-to-b from-brand-50/60 to-ink-50 py-16">
           <div className="container-page text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-ink-900">แพ็กเกจและราคา</h1>
-            <p className="mx-auto mt-4 max-w-2xl text-ink-600">
-              ทุกแพ็กเกจใช้เครื่องมือแก้ไขได้ครบทุกชนิด ต่างกันที่โควตาการใช้งานและลายน้ำเท่านั้น
-            </p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-ink-900">
+              {t('pricingPage.title')}
+            </h1>
+            <p className="mx-auto mt-4 max-w-2xl text-ink-600">{t('pricingPage.intro')}</p>
           </div>
         </section>
 
@@ -49,12 +89,14 @@ export default async function PricingPage() {
 
         <section className="border-t border-ink-200 bg-white py-14">
           <div className="container-page">
-            <h2 className="text-2xl font-bold text-ink-900">ตารางเปรียบเทียบ</h2>
+            <h2 className="text-2xl font-bold text-ink-900">{t('pricingPage.compare')}</h2>
             <div className="mt-6 overflow-x-auto">
               <table className="w-full min-w-[42rem] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-ink-200 text-left">
-                    <th className="py-3 pr-4 font-semibold text-ink-500">คุณสมบัติ</th>
+                    <th className="py-3 pr-4 font-semibold text-ink-500">
+                      {t('pricingPage.feature')}
+                    </th>
                     {PLAN_ORDER.map((planId) => (
                       <th key={planId} className="py-3 pr-4 font-bold text-ink-900">
                         {PLANS[planId].name}
@@ -65,10 +107,10 @@ export default async function PricingPage() {
                 <tbody>
                   {COMPARISON.map((row) => (
                     <tr key={row.label} className="border-b border-ink-100">
-                      <td className="py-3 pr-4 text-ink-600">{row.label}</td>
+                      <td className="py-3 pr-4 text-ink-600">{t(row.label)}</td>
                       {PLAN_ORDER.map((planId) => (
                         <td key={planId} className="py-3 pr-4 font-medium text-ink-900">
-                          {row.value(PLANS[planId])}
+                          {row.value(PLANS[planId], t, locale)}
                         </td>
                       ))}
                     </tr>
@@ -79,11 +121,9 @@ export default async function PricingPage() {
 
             <div className="mt-10 flex flex-wrap items-center gap-3 rounded-2xl bg-ink-50 p-6">
               <Icon name="shield" size={22} className="text-brand-600" />
-              <p className="flex-1 text-sm text-ink-600">
-                ยังไม่แน่ใจ? เริ่มจากแพ็กเกจ Free ได้เลย ไม่ต้องกรอกบัตรเครดิต และอัปเกรดภายหลังได้ทุกเมื่อ
-              </p>
+              <p className="flex-1 text-sm text-ink-600">{t('pricingPage.unsure')}</p>
               <Link href={user ? '/app' : '/register'} className="btn-primary">
-                {user ? 'เข้าหน้าทำงาน' : 'เริ่มใช้ฟรี'}
+                {user ? t('nav.toWorkspace') : t('pricing.startFree')}
               </Link>
             </div>
           </div>

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FEATURES, planAllows } from '../src/lib/features.ts';
+import { formatCount, formatMoney } from '../src/lib/i18n/format.ts';
 import {
   PAID_PLANS,
   PLANS,
   PLAN_ORDER,
   type PlanId,
-  formatLimit,
   getPlan,
   isPaidPlan,
   yearlySavingPercent,
@@ -54,6 +54,17 @@ describe('the plan table', () => {
       const higher = PLANS[PLAN_ORDER[index]].price;
       assert.ok(higher.monthly >= lower.monthly);
       assert.ok(higher.yearly >= lower.yearly);
+    }
+  });
+
+  it('gives every plan a tagline key and at least three feature keys', () => {
+    for (const planId of PLAN_ORDER) {
+      const plan = PLANS[planId];
+      assert.ok(plan.tagline.startsWith('plan.'), `${planId} tagline is not a message key`);
+      assert.ok(plan.features.length >= 3, `${planId} lists too few features`);
+      for (const feature of plan.features) {
+        assert.ok(feature.startsWith('plan.'), `${planId}: ${feature} is not a message key`);
+      }
     }
   });
 
@@ -160,13 +171,32 @@ describe('features derived from plan limits', () => {
   }
 });
 
-describe('formatLimit', () => {
-  it('spells out an unlimited allowance instead of printing Infinity', () => {
-    assert.equal(formatLimit(Number.POSITIVE_INFINITY), 'ไม่จำกัด');
+describe('formatCount', () => {
+  it('returns null for an unlimited allowance rather than printing Infinity', () => {
+    // `null` keeps this a pure formatter: the caller supplies the word, in
+    // whichever language it is already holding a translator for.
+    assert.equal(formatCount(Number.POSITIVE_INFINITY, 'th'), null);
+    assert.equal(formatCount(Number.POSITIVE_INFINITY, 'en'), null);
   });
 
-  it('groups large numbers', () => {
-    assert.equal(formatLimit(2000), '2,000');
-    assert.equal(formatLimit(3), '3');
+  it('groups large numbers in both locales', () => {
+    assert.equal(formatCount(2000, 'th'), '2,000');
+    assert.equal(formatCount(2000, 'en'), '2,000');
+    assert.equal(formatCount(3, 'en'), '3');
+  });
+});
+
+describe('formatMoney', () => {
+  it('renders the same amount the way each language expects', () => {
+    for (const locale of ['th', 'en'] as const) {
+      const rendered = formatMoney(249, locale);
+      assert.ok(rendered.includes('249'), `${locale}: ${rendered}`);
+      // Currency, not a bare number — a price without its unit is a bug.
+      assert.ok(/[฿]|THB/.test(rendered), `${locale}: ${rendered} has no currency`);
+    }
+  });
+
+  it('does not show fractional baht', () => {
+    assert.ok(!formatMoney(2490, 'en').includes('.00'));
   });
 });

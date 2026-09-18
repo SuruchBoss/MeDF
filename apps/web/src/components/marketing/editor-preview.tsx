@@ -1,10 +1,16 @@
+'use client';
+
 import { Icon } from '@/components/icons';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * A static, non-interactive mock of the editor used on the landing page.
- * Purely presentational markup — no client JavaScript.
+ * Presentational markup only; the one piece of behaviour is reading the
+ * locale, so the mock is in the same language as the page around it.
  */
 export function EditorPreview() {
+  const t = useT();
+
   return (
     <div className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-2xl shadow-ink-900/10">
       <div className="flex items-center gap-2 border-b border-ink-200 bg-ink-50 px-4 py-2.5">
@@ -12,7 +18,7 @@ export function EditorPreview() {
         <span className="h-3 w-3 rounded-full bg-amber-400" />
         <span className="h-3 w-3 rounded-full bg-emerald-400" />
         <span className="ml-3 truncate text-xs font-medium text-ink-500">
-          สัญญาว่าจ้าง-2569.pdf — MeDF
+          {t('preview.fileName')}
         </span>
       </div>
 
@@ -47,7 +53,7 @@ export function EditorPreview() {
             {/* A selected text element, with handles */}
             <div className="absolute top-[38%] left-[12%] w-[55%] rounded-sm border-2 border-brand-500 bg-brand-50/70 px-2 py-1">
               <p className="text-[10px] leading-tight font-semibold text-ink-800">
-                ลากวางข้อความได้ทุกจุด
+                {t('preview.dragAnywhere')}
               </p>
               {[
                 'top-0 left-0',
@@ -88,14 +94,14 @@ export function EditorPreview() {
         </div>
 
         <div className="hidden w-44 shrink-0 border-l border-ink-200 bg-white p-3 lg:block">
-          <p className="text-[11px] font-semibold text-ink-500">คุณสมบัติ</p>
+          <p className="text-[11px] font-semibold text-ink-500">{t('preview.properties')}</p>
           <div className="mt-2 space-y-2">
             <div className="rounded-lg border border-ink-200 px-2 py-1.5">
-              <p className="text-[10px] text-ink-400">ขนาดตัวอักษร</p>
+              <p className="text-[10px] text-ink-400">{t('preview.fontSize')}</p>
               <p className="text-xs font-semibold text-ink-800">16 pt</p>
             </div>
             <div className="rounded-lg border border-ink-200 px-2 py-1.5">
-              <p className="text-[10px] text-ink-400">ตำแหน่ง X / Y</p>
+              <p className="text-[10px] text-ink-400">{t('preview.position')}</p>
               <p className="text-xs font-semibold text-ink-800">72 · 318</p>
             </div>
             <div className="flex gap-1">
@@ -108,7 +114,7 @@ export function EditorPreview() {
               ))}
             </div>
             <div className="rounded-lg bg-brand-50 px-2 py-1.5 text-[10px] font-medium text-brand-700">
-              บันทึกอัตโนมัติแล้ว
+              {t('preview.autosaved')}
             </div>
           </div>
         </div>

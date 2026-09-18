@@ -62,6 +62,10 @@ try {
     executablePath: findChromium(),
   });
   const context = await browser.newContext({
+    // Pin the language: the app now picks a locale from Accept-Language, and
+    // these assertions are written in Thai. Without this the browser's own
+    // default would decide which language the test is reading.
+    locale: 'th-TH',
     viewport: { width: 1600, height: 1000 },
     acceptDownloads: true,
   });
@@ -73,8 +77,48 @@ try {
   });
   page.on('pageerror', (error) => consoleErrors.push(String(error)));
 
+  // --- Languages ----------------------------------------------------------
+  // A second locale that nobody looks at is just untranslated data. This
+  // drives the real switcher and checks the page actually changes language,
+  // then puts it back so the rest of the run reads Thai.
+  console.log('\n[1] สลับภาษาไทย/อังกฤษ');
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  check(
+    'หน้าแรกเริ่มต้นเป็นภาษาไทย',
+    (await page.locator('html').getAttribute('lang')) === 'th',
+  );
+  check(
+    'มีปุ่มสลับภาษา',
+    (await page.locator('header select').count()) > 0,
+  );
+
+  await page.locator('header select').first().selectOption('en');
+  await page.waitForFunction(() => document.documentElement.lang === 'en', { timeout: 15_000 });
+  const englishHero = await page.locator('h1').first().innerText();
+  check('สลับเป็นอังกฤษแล้ว lang เปลี่ยนเป็น en', true);
+  check(
+    'พาดหัวเปลี่ยนเป็นภาษาอังกฤษจริง',
+    /Upload a PDF/i.test(englishHero),
+    englishHero.slice(0, 80),
+  );
+  check(
+    'ไม่มีข้อความไทยหลงเหลือในหน้าแรกฉบับอังกฤษ',
+    !/[\u0E00-\u0E7F]/.test(await page.locator('main').innerText()),
+  );
+  check(
+    'ปุ่มใน header เป็นภาษาอังกฤษ',
+    (await page.locator('header').innerText()).includes('Sign in'),
+  );
+
+  await page.locator('header select').first().selectOption('th');
+  await page.waitForFunction(() => document.documentElement.lang === 'th', { timeout: 15_000 });
+  check(
+    'สลับกลับเป็นไทยได้',
+    /อัปโหลด PDF/.test(await page.locator('h1').first().innerText()),
+  );
+
   // --- Sign up ------------------------------------------------------------
-  console.log('\n[1] สมัครสมาชิกผ่านหน้าเว็บ');
+  console.log('\n[2] สมัครสมาชิกผ่านหน้าเว็บ');
   await page.goto(`${BASE}/register`, { waitUntil: 'domcontentloaded' });
   await page.fill('#name', 'คุณทดสอบ');
   await page.fill('#email', 'ui@example.com');
@@ -88,7 +132,7 @@ try {
   );
 
   // --- Upload -------------------------------------------------------------
-  console.log('\n[2] อัปโหลด PDF');
+  console.log('\n[3] อัปโหลด PDF');
   await page.locator('input[type="file"]').setInputFiles(samplePath);
   await page.waitForSelector('a[href^="/app/editor/"]', { timeout: 40_000 });
   check('เอกสารปรากฏในรายการหลังอัปโหลด', true);
@@ -141,7 +185,7 @@ try {
   check('ยืนยันแล้วลบเอกสารจากหน้ารายการได้', true);
 
   // --- Open the editor ----------------------------------------------------
-  console.log('\n[3] เปิดหน้าแก้ไขและเรนเดอร์ PDF');
+  console.log('\n[4] เปิดหน้าแก้ไขและเรนเดอร์ PDF');
   await page.click('a[href^="/app/editor/"]');
   await page.waitForURL('**/app/editor/**', { timeout: 30_000 });
 
@@ -177,7 +221,7 @@ try {
   check('หน้าเอกสารมีขนาดตามสัดส่วน A4', Math.abs(stageBox.height / stageBox.width - 841.89 / 595.28) < 0.02);
 
   // --- Place a text box by clicking --------------------------------------
-  console.log('\n[4] วางกล่องข้อความด้วยการคลิก');
+  console.log('\n[5] วางกล่องข้อความด้วยการคลิก');
   await page.click('button[title^="กล่องข้อความ"]');
   await page.mouse.click(stageBox.x + stageBox.width * 0.4, stageBox.y + stageBox.height * 0.3);
   await page.waitForSelector('[data-element-id]', { timeout: 10_000 });
@@ -208,7 +252,7 @@ try {
   );
 
   // --- Drag ---------------------------------------------------------------
-  console.log('\n[5] ลากย้ายองค์ประกอบ');
+  console.log('\n[6] ลากย้ายองค์ประกอบ');
   const element = page.locator('[data-element-id]').first();
   const elementBox = await element.boundingBox();
   const zoom = elementBox.width / placed.w;
@@ -233,7 +277,7 @@ try {
   );
 
   // --- Resize -------------------------------------------------------------
-  console.log('\n[6] ปรับขนาดด้วยจุดจับ');
+  console.log('\n[7] ปรับขนาดด้วยจุดจับ');
   const handle = page.locator('.selection-handle').nth(4); // south-east
   const handleBox = await handle.boundingBox();
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
@@ -257,7 +301,7 @@ try {
   );
 
   // --- Edit text ----------------------------------------------------------
-  console.log('\n[7] แก้ไขข้อความและคุณสมบัติ');
+  console.log('\n[8] แก้ไขข้อความและคุณสมบัติ');
   await element.dblclick();
   await page.waitForSelector('[data-element-id] textarea', { timeout: 10_000 });
   await page.keyboard.press('Control+A');
@@ -271,7 +315,7 @@ try {
   );
 
   // --- More element types -------------------------------------------------
-  console.log('\n[8] วางองค์ประกอบชนิดอื่น');
+  console.log('\n[9] วางองค์ประกอบชนิดอื่น');
   /**
    * The page is taller than the window at fit-to-width zoom, so a click point
    * has to stay inside both the page box and the viewport.
@@ -300,7 +344,7 @@ try {
   );
 
   // --- Signature ----------------------------------------------------------
-  console.log('\n[9] วาดลายเซ็น');
+  console.log('\n[10] วาดลายเซ็น');
   await page.click('button[title^="ลายเซ็น"]');
   const pad = page.locator('canvas.touch-none');
   await pad.waitFor({ state: 'visible', timeout: 10_000 });
@@ -318,14 +362,14 @@ try {
   check('เพิ่มลายเซ็นเป็นองค์ประกอบใหม่', (await page.locator('[data-element-id]').count()) === 6);
 
   // --- Undo / redo --------------------------------------------------------
-  console.log('\n[10] ย้อนกลับและทำซ้ำ');
+  console.log('\n[11] ย้อนกลับและทำซ้ำ');
   await page.keyboard.press('Control+z');
   check('Ctrl+Z ลบองค์ประกอบล่าสุดออก', (await page.locator('[data-element-id]').count()) === 5);
   await page.keyboard.press('Control+Shift+z');
   check('Ctrl+Shift+Z คืนองค์ประกอบกลับมา', (await page.locator('[data-element-id]').count()) === 6);
 
   // --- Page operations ----------------------------------------------------
-  console.log('\n[11] จัดการหน้าเอกสาร');
+  console.log('\n[12] จัดการหน้าเอกสาร');
   await page.click('button[title="หมุนขวา"]');
   await page.waitForTimeout(400);
   const rotatedStage = await page.locator('[data-page-index="0"]').boundingBox();
@@ -342,7 +386,7 @@ try {
   await page.click('button[title="แสดงหน้านี้"]');
 
   // --- Autosave -----------------------------------------------------------
-  console.log('\n[12] บันทึกอัตโนมัติ');
+  console.log('\n[13] บันทึกอัตโนมัติ');
   await page.waitForFunction(
     () => document.body.innerText.includes('บันทึกแล้ว'),
     { timeout: 20_000 },
@@ -352,7 +396,7 @@ try {
   await page.screenshot({ path: path.join(dataDir, 'editor.png'), fullPage: false });
 
   // --- Export -------------------------------------------------------------
-  console.log('\n[13] Export กลับเป็น PDF');
+  console.log('\n[14] Export กลับเป็น PDF');
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60_000 }),
     page.click('button:has-text("Export PDF")'),
@@ -367,7 +411,7 @@ try {
   check('ไฟล์ที่ได้ยังมีเนื้อหาต้นฉบับ', text.includes('PAGEMARKER-ONE'));
 
   // --- Reload keeps the work ---------------------------------------------
-  console.log('\n[14] เปิดเอกสารใหม่แล้วงานยังอยู่');
+  console.log('\n[15] เปิดเอกสารใหม่แล้วงานยังอยู่');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-element-id]', { timeout: 40_000 });
   check(
@@ -377,7 +421,7 @@ try {
   );
 
   // --- Subscription flow --------------------------------------------------
-  console.log('\n[15] อัปเกรดแพ็กเกจจากหน้าเว็บ');
+  console.log('\n[16] อัปเกรดแพ็กเกจจากหน้าเว็บ');
   await page.goto(`${BASE}/app/billing`, { waitUntil: 'domcontentloaded' });
   await page.click('div.card:has-text("Pro") >> button:has-text("สมัครแพ็กเกจนี้")');
   await page.waitForSelector('text=เปิดใช้แพ็กเกจ Pro เรียบร้อย', { timeout: 30_000 });
@@ -389,7 +433,7 @@ try {
   );
 
   // --- Open-core: this server has no paid module installed ---------------
-  console.log('\n[16] บิลด์โอเพนซอร์สที่ไม่มีโมดูลเสริม');
+  console.log('\n[17] บิลด์โอเพนซอร์สที่ไม่มีโมดูลเสริม');
   // Use the page's own fetch so the member's session cookie is sent.
   const featureReport = await page.evaluate(async () =>
     (await fetch('/api/features')).json(),

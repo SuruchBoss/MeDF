@@ -48,6 +48,10 @@ try {
   const { chromium } = loadPlaywright();
   browser = await browserLaunch(chromium);
   const context = await browser.newContext({
+    // Pin the language: the app now picks a locale from Accept-Language, and
+    // these assertions are written in Thai. Without this the browser's own
+    // default would decide which language the test is reading.
+    locale: 'th-TH',
     viewport: { width: 1500, height: 950 },
     acceptDownloads: true,
   });

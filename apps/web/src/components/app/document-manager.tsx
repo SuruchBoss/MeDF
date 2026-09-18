@@ -7,7 +7,9 @@ import { useDialog } from '@/components/ui/dialog';
 import { ApiError, apiFetch, uploadWithProgress } from '@/lib/client/fetcher';
 import type { DocumentRecord } from '@/lib/db';
 import { formatBytes, formatRelative } from '@/lib/format';
-import { type PlanId, PLANS, formatLimit } from '@/lib/plans';
+import { formatCount } from '@/lib/i18n/format';
+import { useLocale, useT } from '@/lib/i18n/provider';
+import { type PlanId, PLANS } from '@/lib/plans';
 import type { UsageSummary } from '@/lib/quota';
 
 interface DocumentManagerProps {
@@ -17,6 +19,8 @@ interface DocumentManagerProps {
 }
 
 export function DocumentManager({ initialDocuments, initialUsage, plan }: DocumentManagerProps) {
+  const t = useT();
+  const locale = useLocale();
   const dialog = useDialog();
   const [documents, setDocuments] = useState(initialDocuments);
   const [usage, setUsage] = useState(initialUsage);
@@ -41,7 +45,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
         (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'),
       );
       if (pdfs.length === 0) {
-        setError('รองรับเฉพาะไฟล์ PDF เท่านั้น');
+        setError(t('docs.onlyPdf'));
         return;
       }
 
@@ -60,7 +64,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
           });
         } catch (uploadError) {
           const message =
-            uploadError instanceof ApiError ? uploadError.message : 'อัปโหลดไม่สำเร็จ';
+            uploadError instanceof ApiError ? uploadError.message : t('docs.uploadFailed');
           setError(`${file.name}: ${message}`);
           if (uploadError instanceof ApiError && uploadError.code === 'quota_exceeded') {
             setQuotaHit(true);
@@ -73,14 +77,14 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
 
       await refresh();
     },
-    [refresh],
+    [refresh, t],
   );
 
   async function remove(document: DocumentRecord) {
     const confirmed = await dialog.confirm({
-      title: `ลบ “${document.title}” ถาวรหรือไม่?`,
-      message: 'ไฟล์ต้นฉบับและการแก้ไขทั้งหมดจะถูกลบไปด้วย และกู้คืนไม่ได้',
-      confirmLabel: 'ลบถาวร',
+      title: t('docs.deleteConfirm', { title: document.title }),
+      message: t('docs.deleteWarning'),
+      confirmLabel: t('docs.deleteForever'),
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -89,7 +93,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
       await apiFetch(`/api/documents/${document.id}`, { method: 'DELETE' });
       await refresh();
     } catch (deleteError) {
-      setError(deleteError instanceof ApiError ? deleteError.message : 'ลบไม่สำเร็จ');
+      setError(deleteError instanceof ApiError ? deleteError.message : t('docs.deleteFailed'));
     } finally {
       setBusyId(null);
     }
@@ -101,7 +105,9 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
       await apiFetch(`/api/documents/${document.id}/duplicate`, { method: 'POST' });
       await refresh();
     } catch (duplicateError) {
-      setError(duplicateError instanceof ApiError ? duplicateError.message : 'ทำสำเนาไม่สำเร็จ');
+      setError(
+        duplicateError instanceof ApiError ? duplicateError.message : t('docs.duplicateFailed'),
+      );
       if (duplicateError instanceof ApiError && duplicateError.code === 'quota_exceeded') {
         setQuotaHit(true);
       }
@@ -112,10 +118,10 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
 
   async function rename(document: DocumentRecord) {
     const title = await dialog.prompt({
-      title: 'เปลี่ยนชื่อเอกสาร',
-      label: 'ชื่อใหม่',
+      title: t('docs.renameTitle'),
+      label: t('docs.renameLabel'),
       defaultValue: document.title,
-      confirmLabel: 'บันทึกชื่อ',
+      confirmLabel: t('docs.renameSave'),
     });
     if (!title || title === document.title) return;
     setBusyId(document.id);
@@ -126,7 +132,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
       });
       await refresh();
     } catch (renameError) {
-      setError(renameError instanceof ApiError ? renameError.message : 'เปลี่ยนชื่อไม่สำเร็จ');
+      setError(renameError instanceof ApiError ? renameError.message : t('docs.renameFailed'));
     } finally {
       setBusyId(null);
     }
@@ -139,15 +145,15 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
       {/* Usage summary */}
       <div className="grid gap-4 sm:grid-cols-3">
         <UsageCard
-          label="เอกสารที่เก็บไว้"
-          value={`${usage.documents} / ${formatLimit(usage.maxDocuments)}`}
-          hint={`ใช้พื้นที่ ${formatBytes(usage.storageBytes)}`}
+          label={t('docs.stored')}
+          value={`${usage.documents} / ${formatCount(usage.maxDocuments, locale) ?? t('common.unlimited')}`}
+          hint={t('docs.storageUsed', { size: formatBytes(usage.storageBytes) })}
           ratio={usage.documents / usage.maxDocuments}
         />
         <UsageCard
-          label="Export เดือนนี้"
-          value={`${usage.exportsThisMonth} / ${formatLimit(usage.exportsPerMonth)}`}
-          hint={usage.watermark ? 'ไฟล์ที่ export มีลายน้ำ MeDF' : 'ไม่มีลายน้ำ'}
+          label={t('docs.exportsThisMonth')}
+          value={`${usage.exportsThisMonth} / ${formatCount(usage.exportsPerMonth, locale) ?? t('common.unlimited')}`}
+          hint={usage.watermark ? t('docs.watermarked') : t('docs.noWatermark')}
           ratio={
             Number.isFinite(usage.exportsPerMonth)
               ? usage.exportsThisMonth / usage.exportsPerMonth
@@ -159,11 +165,11 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
             <Icon name="star" size={20} />
           </span>
           <div className="flex-1">
-            <p className="text-xs text-ink-500">แพ็กเกจปัจจุบัน</p>
+            <p className="text-xs text-ink-500">{t('docs.currentPlan')}</p>
             <p className="font-bold text-ink-900">{PLANS[plan].name}</p>
           </div>
           <Link href="/app/billing" className="btn-secondary btn-sm">
-            {plan === 'free' ? 'อัปเกรด' : 'จัดการ'}
+            {plan === 'free' ? t('docs.upgrade') : t('docs.manage')}
           </Link>
         </div>
       </div>
@@ -199,10 +205,12 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
           <Icon name="upload" size={26} />
         </span>
-        <h2 className="mt-4 text-lg font-bold text-ink-900">ลากไฟล์ PDF มาวางที่นี่</h2>
+        <h2 className="mt-4 text-lg font-bold text-ink-900">{t('docs.dropHere')}</h2>
         <p className="mt-1 max-w-md text-sm text-ink-500">
-          หรือกดเลือกไฟล์จากเครื่อง · อัปโหลดได้ไม่เกิน {usage.maxUploadMb} MB และ{' '}
-          {formatLimit(usage.maxPages)} หน้าต่อไฟล์
+          {t('docs.dropHint', {
+            size: usage.maxUploadMb,
+            pages: formatCount(usage.maxPages, locale) ?? t('common.unlimited'),
+          })}
         </p>
 
         {progress != null ? (
@@ -213,7 +221,9 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-ink-500">กำลังอัปโหลดและอ่านโครงสร้างไฟล์ {progress}%</p>
+            <p className="mt-2 text-xs text-ink-500">
+              {t('docs.uploading', { percent: progress })}
+            </p>
           </div>
         ) : (
           <button
@@ -223,15 +233,15 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
             disabled={documentsFull}
           >
             <Icon name="plus" size={17} />
-            เลือกไฟล์ PDF
+            {t('docs.pickFile')}
           </button>
         )}
 
         {documentsFull ? (
           <p className="mt-3 text-xs text-amber-700">
-            พื้นที่เก็บเอกสารของแพ็กเกจนี้เต็มแล้ว — ลบเอกสารเก่าหรือ{' '}
+            {t('docs.quotaFull')}{' '}
             <Link href="/app/billing" className="font-semibold underline">
-              อัปเกรดแพ็กเกจ
+              {t('docs.quotaUpgrade')}
             </Link>
           </p>
         ) : null}
@@ -247,11 +257,11 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
             <p>{error}</p>
             {quotaHit ? (
               <Link href="/app/billing" className="mt-1 inline-block font-semibold underline">
-                ดูแพ็กเกจที่เพิ่มโควตา
+                {t('docs.seePlans')}
               </Link>
             ) : null}
           </div>
-          <button type="button" onClick={() => setError(null)} aria-label="ปิด">
+          <button type="button" onClick={() => setError(null)} aria-label={t('common.close')}>
             <Icon name="x" size={16} />
           </button>
         </div>
@@ -260,16 +270,16 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
       {/* Document list */}
       <section>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-ink-900">เอกสารของฉัน</h2>
+          <h2 className="text-lg font-bold text-ink-900">{t('docs.title')}</h2>
           <button type="button" onClick={() => void refresh()} className="btn-ghost btn-sm">
             <Icon name="rotate" size={15} />
-            รีเฟรช
+            {t('docs.refresh')}
           </button>
         </div>
 
         {documents.length === 0 ? (
           <div className="card mt-4 p-10 text-center">
-            <p className="text-sm text-ink-500">ยังไม่มีเอกสาร — อัปโหลดไฟล์ PDF ไฟล์แรกได้เลย</p>
+            <p className="text-sm text-ink-500">{t('docs.empty')}</p>
           </div>
         ) : (
           <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -284,11 +294,14 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
                       {document.title}
                     </h3>
                     <p className="mt-0.5 text-xs text-ink-500">
-                      {document.pageCount} หน้า · {formatBytes(document.sizeBytes)} ·{' '}
-                      {document.elementCount} องค์ประกอบ
+                      {t('docs.summary', {
+                        pages: document.pageCount,
+                        size: formatBytes(document.sizeBytes),
+                        elements: document.elementCount,
+                      })}
                     </p>
                     <p className="mt-0.5 text-xs text-ink-400">
-                      แก้ไข {formatRelative(document.updatedAt)}
+                      {t('docs.editedAgo', { when: formatRelative(document.updatedAt) })}
                     </p>
                   </div>
                 </div>
@@ -296,13 +309,13 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Link href={`/app/editor/${document.id}`} className="btn-primary btn-sm flex-1">
                     <Icon name="pen" size={14} />
-                    เปิดแก้ไข
+                    {t('docs.open')}
                   </Link>
                   <button
                     type="button"
                     onClick={() => void rename(document)}
                     className="btn-secondary btn-sm"
-                    title="เปลี่ยนชื่อ"
+                    title={t('common.rename')}
                     disabled={busyId === document.id}
                   >
                     <Icon name="text" size={14} />
@@ -311,7 +324,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
                     type="button"
                     onClick={() => void duplicate(document)}
                     className="btn-secondary btn-sm"
-                    title="ทำสำเนา"
+                    title={t('common.duplicate')}
                     disabled={busyId === document.id}
                   >
                     <Icon name="copy" size={14} />
@@ -320,7 +333,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
                     type="button"
                     onClick={() => void remove(document)}
                     className="btn-secondary btn-sm text-rose-600 hover:bg-rose-50"
-                    title="ลบ"
+                    title={t('common.delete')}
                     disabled={busyId === document.id}
                   >
                     {busyId === document.id ? <Spinner size={14} /> : <Icon name="trash" size={14} />}
