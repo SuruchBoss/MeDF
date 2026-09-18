@@ -101,13 +101,11 @@ try {
   console.log('\n[2] สร้างเอกสารตัวอย่างในเบราว์เซอร์');
   await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
   await page.waitForSelector('[data-page-index="0"] canvas', { timeout: 90_000 });
-  await page.waitForFunction(
-    () => {
-      const canvas = document.querySelector('[data-page-index="0"] canvas');
-      return canvas instanceof HTMLCanvasElement && canvas.width > 100;
-    },
-    { timeout: 90_000 },
-  );
+  // `canvas.width` is set before pdf.js paints, so waiting on it races the
+  // render; `data-rendered` flips only once the page is actually painted.
+  await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
+    timeout: 90_000,
+  });
   const ink = await page.evaluate(() => {
     const canvas = document.querySelector('[data-page-index="0"] canvas');
     const { data } = canvas

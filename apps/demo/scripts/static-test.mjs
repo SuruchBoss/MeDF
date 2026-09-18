@@ -9,11 +9,30 @@ import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
-const PORT = Number(process.env.STATIC_PORT ?? 41960);
+
+/**
+ * Serve on a port nobody else holds. A fixed port is a trap here: if something
+ * is already listening, the test happily drives *that* site instead and its
+ * results mean nothing.
+ */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.unref();
+    probe.on('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
+const PORT = Number(process.env.STATIC_PORT) || (await freePort());
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/MeDF';
 const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 const demoRoot = path.join(import.meta.dirname, '..');
@@ -91,10 +110,9 @@ ok('หน้า /try พร้อมใช้งาน (hydrate สำเร็
 console.log('\n[3] เล่นจริงในฐานะ Free tier');
 await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
 await page.waitForSelector('[data-page-index="0"] canvas', { timeout: 90000 });
-await page.waitForFunction(() => {
-  const c = document.querySelector('[data-page-index="0"] canvas');
-  return c instanceof HTMLCanvasElement && c.width > 100;
-}, { timeout: 90000 });
+// `canvas.width` is set before pdf.js paints, so waiting on it races the
+// render; `data-rendered` flips only once the page is actually painted.
+await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', { timeout: 90000 });
 const ink = await page.evaluate(() => {
   const c = document.querySelector('[data-page-index="0"] canvas');
   const { data } = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height);
