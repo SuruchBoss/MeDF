@@ -1,4 +1,4 @@
-import { Landing } from '@/components/marketing/landing';
+import { Landing } from '@/shared/demo-surface';
 
 /** The public landing page. Static: there is no session to read here. */
 export default function DemoLandingPage() {

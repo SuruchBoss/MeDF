@@ -16,7 +16,7 @@
     "build": "npm run build --workspace medf-web",
     "start": "npm run start --workspace medf-web",
     "lint": "npm run lint --workspace medf-web",
-    "typecheck": "npm run typecheck --workspace medf-web",
+    "typecheck": "npm run typecheck --workspace medf-web && npm run typecheck --workspace medf-demo",
     "desktop:dev": "npm run dev --workspace medf-desktop",
     "desktop:build": "npm run build --workspace medf-desktop",
     "dist:win": "npm run dist:win --workspace medf-desktop",

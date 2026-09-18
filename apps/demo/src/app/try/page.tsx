@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { DemoEditor } from '@/components/demo/demo-editor';
+import { DemoEditor } from '@/shared/demo-surface';
 
 export const metadata: Metadata = {
   title: 'ลองใช้ทันที',

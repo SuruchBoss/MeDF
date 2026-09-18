@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { FontFaces } from '@/components/font-faces';
-import { LocaleProvider } from '@/lib/i18n/provider';
+import { FontFaces, LocaleProvider } from '@/shared/demo-surface';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
