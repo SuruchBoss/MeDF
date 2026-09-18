@@ -29,7 +29,10 @@ async function dispatch(request: Request, { params }: Params) {
       });
     }
 
-    const handler = addon.server?.handlers?.[name];
+    // `name` comes from the URL, so look it up as an own property only:
+    // `handlers['constructor']` would otherwise be a truthy function.
+    const handlers = addon.server?.handlers;
+    const handler = handlers && Object.hasOwn(handlers, name) ? handlers[name] : undefined;
     if (!handler) return jsonError(`ไม่พบฟีเจอร์ "${name}"`, 404);
 
     if (!canUseFeature(user, handler.feature)) {

@@ -18,7 +18,19 @@
  * public (members need to know what they are buying), its *code* need not be.
  */
 
-import { type PlanId, PLAN_ORDER } from './plans';
+import { type PlanId, type PlanLimits, PLANS, PLAN_ORDER } from './plans';
+
+/**
+ * The lowest plan whose limits already satisfy `predicate`.
+ *
+ * Some entries below are a plan limit wearing a feature's name. Those derive
+ * their tier from the plan table instead of restating it, so lifting a limit
+ * (a free-tier promotion, say) cannot leave this registry still telling members
+ * to upgrade for something the server now grants them.
+ */
+function lowestPlanWhere(predicate: (limits: PlanLimits) => boolean): PlanId {
+  return PLAN_ORDER.find((plan) => predicate(PLANS[plan].limits)) ?? PLAN_ORDER[PLAN_ORDER.length - 1];
+}
 
 export type FeatureSource = 'core' | 'private';
 
@@ -59,14 +71,21 @@ export const FEATURES: Record<string, FeatureDefinition> = {
     key: 'export.noWatermark',
     label: 'Export โดยไม่มีลายน้ำ',
     description: 'ไฟล์ที่ได้ไม่มีข้อความประชาสัมพันธ์ MeDF',
-    plan: 'pro',
+    plan: lowestPlanWhere((limits) => !limits.watermark),
     source: 'core',
   },
   'export.unlimited': {
     key: 'export.unlimited',
     label: 'Export ไม่จำกัดจำนวนครั้ง',
     description: 'ไม่มีโควตารายเดือน',
-    plan: 'pro',
+    plan: lowestPlanWhere((limits) => !Number.isFinite(limits.exportsPerMonth)),
+    source: 'core',
+  },
+  'export.highQualityImages': {
+    key: 'export.highQualityImages',
+    label: 'รูปภาพคุณภาพสูง',
+    description: 'ฝังรูปภาพโดยไม่บีบอัดเพิ่ม และฝังฟอนต์ไทยแบบเต็ม',
+    plan: lowestPlanWhere((limits) => limits.highQualityImages),
     source: 'core',
   },
 
@@ -106,15 +125,22 @@ export const FEATURES: Record<string, FeatureDefinition> = {
 
 export type FeatureKey = keyof typeof FEATURES | string;
 
-function planRank(plan: PlanId): number {
-  return PLAN_ORDER.indexOf(plan);
-}
-
-/** True when `plan` is at least as high as the feature requires. */
+/**
+ * True when `plan` is at least as high as the feature requires.
+ *
+ * This is an entitlement check, so every unknown answers no. `Object.hasOwn`
+ * rather than a bare lookup because `FEATURES['toString']` finds
+ * `Object.prototype.toString` — an object truthy enough to pass a `!feature`
+ * guard, with an undefined `plan` that `indexOf` ranks at -1, which every real
+ * plan then outranks. That is an authorisation check answering yes to a name
+ * nobody declared.
+ */
 export function planAllows(plan: PlanId, key: FeatureKey): boolean {
-  const feature = FEATURES[key];
-  if (!feature) return false;
-  return planRank(plan) >= planRank(feature.plan);
+  if (!Object.hasOwn(FEATURES, key)) return false;
+  const required = PLAN_ORDER.indexOf(FEATURES[key].plan);
+  const held = PLAN_ORDER.indexOf(plan);
+  if (required === -1 || held === -1) return false;
+  return held >= required;
 }
 
 /** Shape returned to the browser so the UI can show or hide entry points. */

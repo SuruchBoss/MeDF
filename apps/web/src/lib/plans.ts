@@ -111,7 +111,9 @@ export const PLAN_ORDER: PlanId[] = ['free', 'pro', 'team'];
 export const PAID_PLANS: PlanId[] = ['pro', 'team'];
 
 export function getPlan(planId: string | null | undefined): Plan {
-  if (planId && planId in PLANS) return PLANS[planId as PlanId];
+  // `Object.hasOwn`, not `in`: `'__proto__' in PLANS` is true and would hand
+  // back `Object.prototype`, which has no `limits` and throws at the first read.
+  if (planId && Object.hasOwn(PLANS, planId)) return PLANS[planId as PlanId];
   return PLANS.free;
 }
 
