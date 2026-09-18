@@ -1,15 +1,32 @@
 import 'server-only';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { STORAGE_DIRS } from './db';
+import { DATA_DIR } from './env';
 
 /**
- * File storage for uploaded PDFs, images and per-document overlay JSON.
+ * Blob storage for uploaded PDFs, images and per-document overlay JSON.
+ *
  * Keys are generated here and validated on every read, so a crafted key can
  * never escape the storage directory.
+ *
+ * These paths used to live in `db.ts`, which had the dependency backwards: the
+ * blob store had to import the record store to find out where its own files
+ * go. Swapping either one for something else — Postgres here, object storage
+ * there — is now a change to one file.
  */
 
+export const STORAGE_DIRS = {
+  pdf: path.join(DATA_DIR, 'storage', 'pdf'),
+  assets: path.join(DATA_DIR, 'storage', 'assets'),
+  overlays: path.join(DATA_DIR, 'storage', 'overlays'),
+} as const;
+
 export type StorageBucket = keyof typeof STORAGE_DIRS;
+
+/** Creates every bucket. Called once at start-up. */
+export async function ensureStorageDirs(): Promise<void> {
+  await Promise.all(Object.values(STORAGE_DIRS).map((dir) => fs.mkdir(dir, { recursive: true })));
+}
 
 const SAFE_KEY = /^[A-Za-z0-9._-]{1,120}$/;
 

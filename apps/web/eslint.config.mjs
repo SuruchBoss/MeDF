@@ -98,6 +98,33 @@ const config = [
       ],
     },
   },
+  /**
+   * Blob storage has one door.
+   *
+   * `storage.ts` is the raw filesystem — buckets, key validation, atomic
+   * writes. What a *document's* files are called and which bucket each goes in
+   * is `document-files.ts`. Calling the filesystem directly from anywhere else
+   * spreads that convention back out, which is what made moving these blobs to
+   * object storage a twelve-site change rather than a one-file change.
+   */
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/storage.ts', 'src/lib/document-files.ts', 'src/lib/db.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/lib/storage', '**/lib/storage', './storage', '../storage'],
+              message: 'ใช้ document-files.ts แทน — storage.ts เป็นชั้นล่างสุดของระบบไฟล์',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   {
     files: ['src/components/**/*.{ts,tsx}'],
     rules: {

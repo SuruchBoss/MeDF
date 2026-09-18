@@ -11,21 +11,22 @@ import {
 import { type OverlayDoc, overlaySchema } from './editor-types';
 import { PdfGeometryError, readPageGeometry } from './pdf/page-geometry';
 import {
-  deleteFileFrom,
-  readFileFrom,
-  readJsonFrom,
-  storageKey,
-  writeFileTo,
-} from './storage';
+  assetKey,
+  deleteAsset,
+  deleteDocumentFiles,
+  pdfKey,
+  readAsset,
+  readOverlayJson,
+  readPdf,
+  writeAsset,
+  writeOverlay,
+  writePdf,
+} from './document-files';
 import { DocumentError } from './errors';
 import { createTranslator, DEFAULT_LOCALE } from './i18n';
 import { assertCanCreateDocument, assertPageCountAllowed, recordUsage } from './quota';
 
 export const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg'] as const;
-
-function overlayKey(documentId: string): string {
-  return storageKey(documentId, 'json');
-}
 
 /** Wraps the shared reader so callers get a status-carrying error. */
 async function pageGeometryOrFail(bytes: Uint8Array) {
@@ -53,11 +54,11 @@ export async function createDocument(options: {
   assertPageCountAllowed(user, pages.length);
 
   const id = newId('doc');
-  const fileKey = storageKey(id, 'pdf');
-  await writeFileTo('pdf', fileKey, bytes);
+  const fileKey = pdfKey(id);
+  await writePdf(fileKey, bytes);
 
   const overlay: OverlayDoc = { version: 1, pages, elements: [] };
-  await writeFileTo('overlays', overlayKey(id), JSON.stringify(overlay));
+  await writeOverlay(id, overlay);
 
   // A stored title is data, not a rendered string: it keeps whatever it was
   // named regardless of who opens it later, so the fallback uses the server's
@@ -104,20 +105,20 @@ export async function getDocument(userId: string, documentId: string): Promise<D
 
 export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
   try {
-    return await readFileFrom('pdf', doc.fileKey);
+    return await readPdf(doc.fileKey);
   } catch {
     throw new DocumentError('doc.error.fileMissing', { status: 410 });
   }
 }
 
 export async function readOverlay(doc: DocumentRecord): Promise<OverlayDoc> {
-  const raw = await readJsonFrom<unknown>('overlays', overlayKey(doc.id));
+  const raw = await readOverlayJson(doc.id);
   if (!raw) {
     // Overlay missing (e.g. restored backup): rebuild it from the source PDF.
     const bytes = await readDocumentBytes(doc);
     const pages = await pageGeometryOrFail(bytes);
     const overlay: OverlayDoc = { version: 1, pages, elements: [] };
-    await writeFileTo('overlays', overlayKey(doc.id), JSON.stringify(overlay));
+    await writeOverlay(doc.id, overlay);
     return overlay;
   }
   const parsed = overlaySchema.safeParse(raw);
@@ -131,7 +132,7 @@ export async function saveOverlay(
   doc: DocumentRecord,
   overlay: OverlayDoc,
 ): Promise<DocumentRecord> {
-  await writeFileTo('overlays', overlayKey(doc.id), JSON.stringify(overlay));
+  await writeOverlay(doc.id, overlay);
   // The member's work is already on disk, above. What is left is the document
   // row's derived counters, which autosave touches every few seconds — so this
   // is the one write allowed to be deferred rather than rewriting the whole
@@ -171,11 +172,11 @@ export async function deleteDocument(doc: DocumentRecord): Promise<void> {
     current.assets = current.assets.filter((asset) => asset.documentId !== doc.id);
   });
 
-  await Promise.all([
-    deleteFileFrom('pdf', doc.fileKey),
-    deleteFileFrom('overlays', overlayKey(doc.id)),
-    ...assets.map((asset) => deleteFileFrom('assets', asset.fileKey)),
-  ]);
+  await deleteDocumentFiles(
+    doc.id,
+    doc.fileKey,
+    assets.map((asset) => asset.fileKey),
+  );
 }
 
 export async function duplicateDocument(
@@ -187,9 +188,9 @@ export async function duplicateDocument(
   const overlay = await readOverlay(doc);
 
   const id = newId('doc');
-  const fileKey = storageKey(id, 'pdf');
-  await writeFileTo('pdf', fileKey, bytes);
-  await writeFileTo('overlays', overlayKey(id), JSON.stringify(overlay));
+  const fileKey = pdfKey(id);
+  await writePdf(fileKey, bytes);
+  await writeOverlay(id, overlay);
 
   const copy: DocumentRecord = {
     ...doc,
@@ -208,9 +209,9 @@ export async function duplicateDocument(
   const clones: AssetRecord[] = [];
   for (const asset of assets) {
     const assetId = newId('ast');
-    const assetKey = storageKey(assetId, asset.mimeType === 'image/png' ? 'png' : 'jpg');
-    await writeFileTo('assets', assetKey, await readFileFrom('assets', asset.fileKey));
-    clones.push({ ...asset, id: assetId, documentId: id, fileKey: assetKey, createdAt: nowIso() });
+    const copyKey = assetKey(assetId, asset.mimeType);
+    await writeAsset(copyKey, await readAsset(asset.fileKey));
+    clones.push({ ...asset, id: assetId, documentId: id, fileKey: copyKey, createdAt: nowIso() });
   }
 
   if (clones.length > 0) {
@@ -220,7 +221,7 @@ export async function duplicateDocument(
         ? { ...element, assetId: remap.get(element.assetId)! }
         : element,
     );
-    await writeFileTo('overlays', overlayKey(id), JSON.stringify(overlay));
+    await writeOverlay(id, overlay);
   }
 
   await mutate((current) => {
@@ -251,8 +252,8 @@ export async function createAsset(options: {
   }
 
   const id = newId('ast');
-  const fileKey = storageKey(id, mimeType === 'image/png' ? 'png' : 'jpg');
-  await writeFileTo('assets', fileKey, bytes);
+  const fileKey = assetKey(id, mimeType);
+  await writeAsset(fileKey, bytes);
 
   const asset: AssetRecord = {
     id,
@@ -283,7 +284,7 @@ export async function getAsset(userId: string, assetId: string): Promise<AssetRe
 }
 
 export async function readAssetBytes(asset: AssetRecord): Promise<Buffer> {
-  return readFileFrom('assets', asset.fileKey);
+  return readAsset(asset.fileKey);
 }
 
 /** Loader used by the export renderer, scoped to a single member. */
@@ -311,6 +312,6 @@ export async function pruneUnusedAssets(doc: DocumentRecord, overlay: OverlayDoc
     const orphanIds = new Set(orphans.map((asset) => asset.id));
     current.assets = current.assets.filter((asset) => !orphanIds.has(asset.id));
   });
-  await Promise.all(orphans.map((asset) => deleteFileFrom('assets', asset.fileKey)));
+  await Promise.all(orphans.map((asset) => deleteAsset(asset.fileKey)));
   return orphans.length;
 }

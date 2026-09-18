@@ -229,6 +229,21 @@ it('always returns 0-359, never 360', () => {
 
 ไฟล์ใหญ่หรือไฟล์ที่เขียนบ่อย (PDF, รูป, overlay) ไม่เก็บใน `db.json` แต่เป็นไฟล์แยกใน `storage/`
 
+### ชั้นของการเก็บไฟล์ — มีประตูเดียว
+
+```
+documents.ts          ตรรกะของเอกสาร — ไม่รู้ว่าไฟล์ชื่ออะไร อยู่ bucket ไหน
+   ↓
+document-files.ts     กติกาการตั้งชื่อไฟล์ของเอกสาร (pdfKey, overlayKey, assetKey)
+   ↓
+storage.ts            ระบบไฟล์ดิบ — bucket, ตรวจ key, เขียนแบบ atomic
+```
+
+- **ห้าม import `storage.ts` จากที่อื่นนอกจาก `document-files.ts` และ `db.ts`**
+  ✅ **บังคับด้วย ESLint แล้ว**
+- ย้ายไป object storage = แก้ `storage.ts` + `document-files.ts` เท่านั้น
+- ย้ายไป Postgres = แก้ `db.ts` เท่านั้น
+
 ---
 
 ## 9. ข้อผิดพลาดและความปลอดภัย

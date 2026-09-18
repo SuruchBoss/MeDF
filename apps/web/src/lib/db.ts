@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR } from './env';
 import type { BillingInterval, PlanId, PlanStatus } from './plans';
+import { ensureStorageDirs } from './storage';
 
 /**
  * A tiny, dependency-free persistence layer.
@@ -110,12 +111,6 @@ export const SCHEMA_VERSION = 1;
 
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
-export const STORAGE_DIRS = {
-  pdf: path.join(DATA_DIR, 'storage', 'pdf'),
-  assets: path.join(DATA_DIR, 'storage', 'assets'),
-  overlays: path.join(DATA_DIR, 'storage', 'overlays'),
-} as const;
-
 function emptyDatabase(): Database {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -160,7 +155,7 @@ const FLUSH_DELAY_MS = 750;
 async function ensureDirs(): Promise<void> {
   state.ready ??= (async () => {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    await Promise.all(Object.values(STORAGE_DIRS).map((dir) => fs.mkdir(dir, { recursive: true })));
+    await ensureStorageDirs();
   })();
   await state.ready;
 }
