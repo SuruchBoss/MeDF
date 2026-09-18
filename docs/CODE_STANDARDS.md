@@ -67,6 +67,16 @@ src/lib/         ตรรกะ, ข้อมูล, PDF          — ห้า
 ### โมดูลที่ต้องระบุฝั่ง
 
 - ไฟล์ที่แตะดิสก์หรือความลับ ต้องขึ้นต้นด้วย `import 'server-only';`
+- component **นำเข้าโมดูลเหล่านั้นได้เฉพาะเป็น `import type`**
+
+  ```tsx
+  import type { DocumentRecord } from '@/lib/db';        // ✅ ถูกลบตอน build
+  import { type DocumentRecord, mutate } from '@/lib/db'; // ❌ ดึง server-only เข้า client bundle
+  ```
+
+  ทั้งสองบรรทัดหน้าตาเกือบเหมือนกัน แต่บรรทัดล่างทำให้ build พัง
+  ✅ **บังคับด้วย ESLint แล้ว** (`@typescript-eslint/no-restricted-imports` + `allowTypeImports`)
+  — เพิ่มไฟล์ที่มี `server-only` ใหม่ ต้องไปเพิ่มชื่อใน `SERVER_ONLY_MODULES` ด้วย
 - `src/lib/pdf/render.ts` ใช้ได้ **ทั้งสองฝั่ง** จึงห้ามเรียก `node:fs` หรือ `fetch` ตรง ๆ
   ให้รับ `FontLoader` เข้ามาทาง argument แทน — เซิร์ฟเวอร์ส่งตัวที่อ่านไฟล์ เบราว์เซอร์ส่งตัวที่ fetch
 

@@ -1,6 +1,19 @@
 import coreWebVitals from 'eslint-config-next/core-web-vitals';
 import typescriptConfig from 'eslint-config-next/typescript';
 
+/** Files that carry `import 'server-only'`; see the rule at the bottom. */
+const SERVER_ONLY_MODULES = [
+  '@/lib/api',
+  '@/lib/auth',
+  '@/lib/billing',
+  '@/lib/db',
+  '@/lib/documents',
+  '@/lib/pdf/fonts-node',
+  '@/lib/pro',
+  '@/lib/quota',
+  '@/lib/storage',
+];
+
 const config = [
   ...coreWebVitals,
   ...typescriptConfig,
@@ -98,6 +111,28 @@ const config = [
                 'component ต้องไม่ขึ้นกับ route — ส่งสิ่งที่ต้องใช้เข้ามาทาง props แทน',
             },
           ],
+        },
+      ],
+
+      /**
+       * Server-only modules, as types only.
+       *
+       * A component may name `DocumentRecord` or `PublicUser` — a type import
+       * is erased at build time and reaches no runtime. A *value* import from
+       * the same file pulls `server-only` into the client bundle and fails the
+       * build, and until now nothing said which of the two you had written.
+       * `allowTypeImports` draws exactly that line.
+       *
+       * Keep this list in step with the files carrying `import 'server-only'`.
+       */
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: SERVER_ONLY_MODULES.map((name) => ({
+            name,
+            allowTypeImports: true,
+            message: `${name} เป็นโมดูลฝั่งเซิร์ฟเวอร์ — นำเข้าได้เฉพาะ \`import type\` เท่านั้น`,
+          })),
         },
       ],
     },
