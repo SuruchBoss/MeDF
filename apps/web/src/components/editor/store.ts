@@ -1,5 +1,6 @@
 'use client';
 
+import type { Dispatch } from 'react';
 import {
   type AnyElement,
   type ElementType,
@@ -16,6 +17,28 @@ import {
  */
 
 export type Tool = 'select' | ElementType;
+
+/**
+ * The fields of one element type that an edit may change — everything except
+ * its identity.
+ *
+ * It is written distributively (`T extends unknown ? … : never`) on purpose:
+ * `Omit` over a union keeps only the keys the members share, which would make
+ * `fontSize` and friends unassignable. Distributing produces a union of
+ * per-type patches instead, so a patch has to match exactly one element type.
+ */
+export type ElementPatch<T extends AnyElement = AnyElement> = T extends unknown
+  ? Partial<Omit<T, 'id' | 'type'>>
+  : never;
+
+/**
+ * The fields every element type shares — geometry, opacity, lock, page.
+ *
+ * This one is deliberately *not* distributive: `Omit` over a union keeps only
+ * the common keys, which is exactly the right shape for an edit applied to a
+ * mixed selection.
+ */
+export type BaseElementPatch = Partial<Omit<AnyElement, 'id' | 'type'>>;
 
 export interface Guide {
   axis: 'x' | 'y';
@@ -41,8 +64,8 @@ export type EditorAction =
   | { type: 'replace'; overlay: OverlayDoc; resetHistory?: boolean }
   | { type: 'checkpoint' }
   | { type: 'add'; element: AnyElement; select?: boolean }
-  | { type: 'update'; ids: string[]; patch: Partial<AnyElement>; history?: boolean }
-  | { type: 'updateOne'; id: string; patch: Partial<AnyElement>; history?: boolean }
+  | { type: 'update'; ids: string[]; patch: BaseElementPatch; history?: boolean }
+  | { type: 'updateOne'; id: string; patch: ElementPatch; history?: boolean }
   | { type: 'delete'; ids?: string[] }
   | { type: 'duplicate' }
   | { type: 'select'; ids: string[]; additive?: boolean }
@@ -84,11 +107,19 @@ function pushHistory(state: EditorState): Pick<EditorState, 'past' | 'future'> {
   };
 }
 
-/** Applies a patch to the selected elements, keeping the discriminated union intact. */
+/**
+ * Applies a patch to the selected elements, keeping the discriminated union
+ * intact.
+ *
+ * The cast is the one place where the union is re-formed: `patch` is typed for
+ * a single element type, but the reducer works over the whole list. Pinning
+ * `type` back keeps the discriminant honest, and `createPatcher` guarantees the
+ * patch was checked against *some* element type before it got here.
+ */
 function patchElements(
   elements: AnyElement[],
   ids: string[],
-  patch: Partial<AnyElement>,
+  patch: ElementPatch | BaseElementPatch,
 ): AnyElement[] {
   const target = new Set(ids);
   return elements.map((element) =>
@@ -96,6 +127,28 @@ function patchElements(
       ? ({ ...element, ...patch, type: element.type } as AnyElement)
       : element,
   );
+}
+
+/**
+ * Builds an edit function bound to one element and typed to *that* element's
+ * fields, so `{ fontSiz: 12 }` or `{ arrowEnd: true }` on a text box is a
+ * compile error rather than a silent no-op.
+ *
+ * Call it inside a branch where the element type is already narrowed.
+ */
+export function createPatcher<T extends AnyElement>(
+  element: T,
+  dispatch: Dispatch<EditorAction>,
+) {
+  return (patch: ElementPatch<T>, history = true) =>
+    dispatch({
+      type: 'updateOne',
+      id: element.id,
+      // `ElementPatch<T>` is one member of `ElementPatch`; TypeScript cannot
+      // see that while `T` is still generic.
+      patch: patch as ElementPatch,
+      history,
+    });
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {

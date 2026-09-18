@@ -2,23 +2,10 @@
 
 import type { Dispatch } from 'react';
 import { Icon } from '@/components/icons';
-import {
-  type AnyElement,
-  FONT_LABELS,
-  FONT_FAMILIES,
-  type PageState,
-  elementLabel,
-} from '@/lib/editor-types';
-import {
-  ButtonGroup,
-  ColorField,
-  NumberField,
-  Row,
-  Section,
-  SliderField,
-  ToggleButton,
-} from './controls';
-import type { EditorAction } from './store';
+import { type AnyElement, type PageState, elementLabel } from '@/lib/editor-types';
+import { NumberField, Row, Section, SliderField, ToggleButton } from './controls';
+import { ElementProperties } from './element-properties';
+import type { BaseElementPatch, EditorAction } from './store';
 
 /**
  * Right-hand inspector: geometry, per-type styling, stacking order and the
@@ -43,7 +30,7 @@ export function PropertiesPanel({
   const single = selection.length === 1 ? selection[0] : null;
   const ids = selection.map((element) => element.id);
 
-  function patch(changes: Partial<AnyElement>, history = true) {
+  function patch(changes: BaseElementPatch, history = true) {
     dispatch({ type: 'update', ids, patch: changes, history });
   }
 
@@ -51,7 +38,7 @@ export function PropertiesPanel({
     if (!page) return;
     dispatch({ type: 'checkpoint' });
     for (const element of selection) {
-      const changes: Partial<AnyElement> = {};
+      const changes: BaseElementPatch = {};
       if (mode === 'left') changes.x = 0;
       if (mode === 'centre') changes.x = Math.round((page.width - element.w) / 2);
       if (mode === 'right') changes.x = Math.round(page.width - element.w);
@@ -197,7 +184,7 @@ export function PropertiesPanel({
             </Row>
           </Section>
 
-          {single ? <TypeProperties element={single} dispatch={dispatch} /> : null}
+          {single ? <ElementProperties element={single} dispatch={dispatch} /> : null}
 
           <Section title="ลำดับชั้น">
             <Row>
@@ -294,322 +281,5 @@ function iconForElement(element: AnyElement) {
       return 'check' as const;
     default:
       return 'square' as const;
-  }
-}
-
-function TypeProperties({
-  element,
-  dispatch,
-}: {
-  element: AnyElement;
-  dispatch: Dispatch<EditorAction>;
-}) {
-  function patch(changes: Partial<AnyElement>, history = true) {
-    dispatch({ type: 'updateOne', id: element.id, patch: changes, history });
-  }
-
-  switch (element.type) {
-    case 'text':
-      return (
-        <Section title="ข้อความ">
-          <textarea
-            className="field min-h-[72px] text-xs"
-            value={element.text}
-            onChange={(event) => patch({ text: event.target.value } as Partial<AnyElement>, false)}
-            onKeyDown={(event) => event.stopPropagation()}
-            placeholder="พิมพ์ข้อความ"
-          />
-          <label className="block">
-            <span className="mb-1 block text-[11px] text-ink-500">ฟอนต์</span>
-            <select
-              className="field px-2 py-1.5 text-xs"
-              value={element.fontFamily}
-              onChange={(event) =>
-                patch({ fontFamily: event.target.value } as Partial<AnyElement>)
-              }
-            >
-              {FONT_FAMILIES.map((family) => (
-                <option key={family} value={family}>
-                  {FONT_LABELS[family]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Row>
-            <NumberField
-              label="ขนาด"
-              value={element.fontSize}
-              min={4}
-              max={400}
-              onChange={(value) => patch({ fontSize: value } as Partial<AnyElement>)}
-              suffix="pt"
-            />
-            <NumberField
-              label="ระยะบรรทัด"
-              value={element.lineHeight}
-              min={0.8}
-              max={3}
-              step={0.05}
-              onChange={(value) => patch({ lineHeight: value } as Partial<AnyElement>)}
-            />
-          </Row>
-          <Row>
-            <ToggleButton
-              active={element.bold}
-              onClick={() => patch({ bold: !element.bold } as Partial<AnyElement>)}
-              title="ตัวหนา"
-            >
-              <Icon name="bold" size={14} />
-            </ToggleButton>
-            <ToggleButton
-              active={element.italic}
-              onClick={() => patch({ italic: !element.italic } as Partial<AnyElement>)}
-              title="ตัวเอียง"
-            >
-              <Icon name="italic" size={14} />
-            </ToggleButton>
-            <ToggleButton
-              active={element.underline}
-              onClick={() => patch({ underline: !element.underline } as Partial<AnyElement>)}
-              title="ขีดเส้นใต้"
-            >
-              <Icon name="underline" size={14} />
-            </ToggleButton>
-          </Row>
-          <ButtonGroup
-            value={element.align}
-            onChange={(align) => patch({ align } as Partial<AnyElement>)}
-            options={[
-              { value: 'left', label: <Icon name="align-left" size={14} />, title: 'ชิดซ้าย' },
-              { value: 'center', label: <Icon name="align-center" size={14} />, title: 'กลาง' },
-              { value: 'right', label: <Icon name="align-right" size={14} />, title: 'ชิดขวา' },
-            ]}
-          />
-          <Row>
-            <ColorField
-              label="สีตัวอักษร"
-              value={element.color}
-              onChange={(color) => patch({ color: color ?? '#111827' } as Partial<AnyElement>)}
-            />
-          </Row>
-          <Row>
-            <ColorField
-              label="สีพื้นหลัง"
-              value={element.background}
-              allowNone
-              onChange={(background) => patch({ background } as Partial<AnyElement>)}
-            />
-          </Row>
-          <NumberField
-            label="ระยะขอบใน"
-            value={element.padding}
-            min={0}
-            max={80}
-            onChange={(padding) => patch({ padding } as Partial<AnyElement>)}
-            suffix="pt"
-          />
-        </Section>
-      );
-
-    case 'image':
-      return (
-        <Section title="รูปภาพ">
-          <button
-            type="button"
-            className="btn-secondary btn-sm w-full"
-            onClick={() =>
-              patch({
-                h: Math.round(element.w / element.naturalRatio),
-              } as Partial<AnyElement>)
-            }
-          >
-            <Icon name="grid" size={14} />
-            คืนสัดส่วนเดิม
-          </button>
-          <p className="text-[11px] text-ink-400">
-            กด Shift ระหว่างลากมุมเพื่อคงสัดส่วนภาพ
-          </p>
-        </Section>
-      );
-
-    case 'rect':
-      return (
-        <Section title="สี่เหลี่ยม">
-          <Row>
-            <ColorField
-              label="สีพื้น"
-              value={element.fill}
-              allowNone
-              onChange={(fill) => patch({ fill } as Partial<AnyElement>)}
-            />
-          </Row>
-          <Row>
-            <ColorField
-              label="สีเส้นขอบ"
-              value={element.stroke}
-              allowNone
-              onChange={(stroke) => patch({ stroke } as Partial<AnyElement>)}
-            />
-          </Row>
-          <Row>
-            <NumberField
-              label="ความหนาเส้น"
-              value={element.strokeWidth}
-              min={0}
-              max={40}
-              step={0.5}
-              onChange={(strokeWidth) => patch({ strokeWidth } as Partial<AnyElement>)}
-            />
-            <NumberField
-              label="มุมโค้ง"
-              value={element.radius}
-              min={0}
-              max={400}
-              onChange={(radius) => patch({ radius } as Partial<AnyElement>)}
-            />
-          </Row>
-        </Section>
-      );
-
-    case 'ellipse':
-      return (
-        <Section title="วงกลม / วงรี">
-          <Row>
-            <ColorField
-              label="สีพื้น"
-              value={element.fill}
-              allowNone
-              onChange={(fill) => patch({ fill } as Partial<AnyElement>)}
-            />
-          </Row>
-          <Row>
-            <ColorField
-              label="สีเส้นขอบ"
-              value={element.stroke}
-              allowNone
-              onChange={(stroke) => patch({ stroke } as Partial<AnyElement>)}
-            />
-          </Row>
-          <NumberField
-            label="ความหนาเส้น"
-            value={element.strokeWidth}
-            min={0}
-            max={40}
-            step={0.5}
-            onChange={(strokeWidth) => patch({ strokeWidth } as Partial<AnyElement>)}
-          />
-        </Section>
-      );
-
-    case 'line':
-      return (
-        <Section title="เส้น">
-          <Row>
-            <ColorField
-              label="สีเส้น"
-              value={element.stroke}
-              onChange={(stroke) => patch({ stroke: stroke ?? '#111827' } as Partial<AnyElement>)}
-            />
-          </Row>
-          <NumberField
-            label="ความหนา"
-            value={element.strokeWidth}
-            min={0.2}
-            max={40}
-            step={0.2}
-            onChange={(strokeWidth) => patch({ strokeWidth } as Partial<AnyElement>)}
-          />
-          <Row>
-            <ToggleButton
-              active={element.arrowStart}
-              onClick={() => patch({ arrowStart: !element.arrowStart } as Partial<AnyElement>)}
-              title="หัวลูกศรต้นทาง"
-            >
-              <span className="text-[10px]">◀ ต้น</span>
-            </ToggleButton>
-            <ToggleButton
-              active={element.arrowEnd}
-              onClick={() => patch({ arrowEnd: !element.arrowEnd } as Partial<AnyElement>)}
-              title="หัวลูกศรปลายทาง"
-            >
-              <span className="text-[10px]">ปลาย ▶</span>
-            </ToggleButton>
-          </Row>
-          <p className="text-[11px] text-ink-400">ลากจุดสีม่วงบนเส้นเพื่อย้ายปลายเส้น</p>
-        </Section>
-      );
-
-    case 'draw':
-      return (
-        <Section title="ลายเซ็น">
-          <Row>
-            <ColorField
-              label="สีเส้น"
-              value={element.stroke}
-              onChange={(stroke) => patch({ stroke: stroke ?? '#1d4ed8' } as Partial<AnyElement>)}
-            />
-          </Row>
-          <NumberField
-            label="ความหนา"
-            value={element.strokeWidth}
-            min={0.2}
-            max={40}
-            step={0.2}
-            onChange={(strokeWidth) => patch({ strokeWidth } as Partial<AnyElement>)}
-          />
-          <p className="text-[11px] text-ink-400">
-            มี {element.strokes.length} เส้น · ย่อ-ขยายได้โดยไม่เสียความคม
-          </p>
-        </Section>
-      );
-
-    case 'highlight':
-      return (
-        <Section title="ไฮไลต์">
-          <Row>
-            <ColorField
-              label="สีไฮไลต์"
-              value={element.color}
-              onChange={(color) => patch({ color: color ?? '#fde047' } as Partial<AnyElement>)}
-            />
-          </Row>
-          <p className="text-[11px] text-ink-400">
-            ใช้โหมดผสมสีแบบ multiply จึงไม่ทับข้อความเดิมให้หายไป
-          </p>
-        </Section>
-      );
-
-    case 'check':
-      return (
-        <Section title="เครื่องหมาย">
-          <ButtonGroup
-            value={element.variant}
-            onChange={(variant) => patch({ variant } as Partial<AnyElement>)}
-            options={[
-              { value: 'check', label: '✓ ถูก' },
-              { value: 'cross', label: '✕ ผิด' },
-              { value: 'dot', label: '● จุด' },
-            ]}
-          />
-          <Row>
-            <ColorField
-              label="สี"
-              value={element.color}
-              onChange={(color) => patch({ color: color ?? '#16a34a' } as Partial<AnyElement>)}
-            />
-          </Row>
-          <NumberField
-            label="ความหนา"
-            value={element.strokeWidth}
-            min={0.5}
-            max={40}
-            step={0.5}
-            onChange={(strokeWidth) => patch({ strokeWidth } as Partial<AnyElement>)}
-          />
-        </Section>
-      );
-
-    default:
-      return null;
   }
 }

@@ -2,7 +2,12 @@
 
 import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { type AnyElement, FONT_CSS, type PageState } from '@/lib/editor-types';
+import {
+  type AnyElement,
+  FONT_CSS,
+  type LineElement,
+  type PageState,
+} from '@/lib/editor-types';
 import { ElementView } from './element-view';
 import { createElement } from './factories';
 import {
@@ -20,8 +25,10 @@ import {
 import { PdfPageCanvas } from './pdf-page-canvas';
 import {
   type EditorAction,
+  type ElementPatch,
   type Guide,
   type Tool,
+  createPatcher,
   rotatedPageSize,
   toBaseSpace,
 } from './store';
@@ -233,14 +240,10 @@ export function PageStage({
         if (!element || element.type !== 'line') return;
         const fx = Math.max(-0.5, Math.min(1.5, (point.x - element.x) / element.w));
         const fy = Math.max(-0.5, Math.min(1.5, (point.y - element.y) / element.h));
-        dispatch({
-          type: 'updateOne',
-          id: element.id,
-          patch: {
-            [gesture.which]: [round(fx * 100) / 100, round(fy * 100) / 100],
-          } as Partial<AnyElement>,
-          history: false,
-        });
+        const endpoint: [number, number] = [round(fx * 100) / 100, round(fy * 100) / 100];
+        const patch: ElementPatch<LineElement> =
+          gesture.which === 'from' ? { from: endpoint } : { to: endpoint };
+        dispatch({ type: 'updateOne', id: element.id, patch, history: false });
       }
     }
 
@@ -423,12 +426,7 @@ export function PageStage({
                     autoFocus
                     value={element.text}
                     onChange={(event) =>
-                      dispatch({
-                        type: 'updateOne',
-                        id: element.id,
-                        patch: { text: event.target.value } as Partial<AnyElement>,
-                        history: false,
-                      })
+                      createPatcher(element, dispatch)({ text: event.target.value }, false)
                     }
                     onBlur={() => dispatch({ type: 'editing', id: null })}
                     onKeyDown={(event) => {
