@@ -162,13 +162,11 @@ try {
 
   const stage = page.locator('[data-page-index="0"]');
   await stage.waitFor({ state: 'visible', timeout: 40_000 });
-  await page.waitForFunction(
-    () => {
-      const canvas = document.querySelector('[data-page-index="0"] canvas');
-      return canvas instanceof HTMLCanvasElement && canvas.width > 100;
-    },
-    { timeout: 60_000 },
-  );
+  // `canvas.width` is set before pdf.js paints, so waiting on it races the
+  // render; `data-rendered` flips only once the page is actually painted.
+  await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
+    timeout: 90_000,
+  });
   check('เรนเดอร์หน้า PDF ลงแคนวาสได้', true);
 
   // A blank canvas of the right size is not a rendered page: count the pixels

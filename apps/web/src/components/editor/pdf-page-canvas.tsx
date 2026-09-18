@@ -78,6 +78,10 @@ export function PdfPageCanvas({
     <>
       <canvas
         ref={canvasRef}
+        // True once pdf.js has painted this page at least once. The canvas has
+        // its final dimensions well before that, so this is what tests must
+        // wait for before reading pixels back.
+        data-rendered={rendered}
         style={{
           width,
           height,
