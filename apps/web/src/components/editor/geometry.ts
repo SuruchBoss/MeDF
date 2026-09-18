@@ -168,7 +168,9 @@ export function boxesIntersect(a: Box, b: Box): boolean {
 /** Snaps a rotation angle to helpful increments. */
 export function snapAngle(angle: number, coarse: boolean): number {
   const normalized = ((angle % 360) + 360) % 360;
-  if (coarse) return Math.round(normalized / 15) * 15;
+  // `% 360` again because rounding up from 353°+ lands on 360, which is out of
+  // the 0-359 range every caller assumes (and one nudge past the schema's max).
+  if (coarse) return (Math.round(normalized / 15) * 15) % 360;
   for (const anchor of [0, 90, 180, 270, 360]) {
     if (Math.abs(normalized - anchor) <= 3) return anchor % 360;
   }

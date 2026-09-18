@@ -79,10 +79,13 @@ export class FontBook {
   private readonly cache = new Map<string, Promise<PDFFont>>();
   private fontkitRegistered = false;
 
-  constructor(
-    private readonly doc: PDFDocument,
-    private readonly loadFontBytes: FontLoader,
-  ) {}
+  private readonly doc: PDFDocument;
+  private readonly loadFontBytes: FontLoader;
+
+  constructor(doc: PDFDocument, loadFontBytes: FontLoader) {
+    this.doc = doc;
+    this.loadFontBytes = loadFontBytes;
+  }
 
   /**
    * Resolves the font to use for a run of text, transparently upgrading to
@@ -164,26 +167,37 @@ export function wrapText(
 
     for (const chunk of chunks) {
       const candidate = current + chunk;
-      if (safeWidth(font, candidate.trimEnd(), size) <= maxWidth || current === '') {
-        if (safeWidth(font, candidate.trimEnd(), size) <= maxWidth) {
-          current = candidate;
-          continue;
-        }
-        // A single chunk wider than the box: break it character by character.
-        let piece = '';
-        for (const char of chunk) {
-          if (safeWidth(font, piece + char, size) > maxWidth && piece !== '') {
-            lines.push(piece);
-            piece = char;
-          } else {
-            piece += char;
-          }
-        }
-        current = piece;
+      if (safeWidth(font, candidate.trimEnd(), size) <= maxWidth) {
+        current = candidate;
         continue;
       }
-      lines.push(current.trimEnd());
-      current = chunk.replace(/^\s+/, '');
+
+      // The chunk does not fit after what we have, so start a new line.
+      if (current !== '') {
+        lines.push(current.trimEnd());
+        current = '';
+      }
+
+      const word = chunk.replace(/^\s+/, '');
+      if (safeWidth(font, word.trimEnd(), size) <= maxWidth) {
+        current = word;
+        continue;
+      }
+
+      // A chunk wider than the box on its own gets broken character by
+      // character. This has to happen for *every* such chunk, not only one that
+      // lands at the start of a line, or a long word following a short one
+      // would overflow its box in the exported PDF.
+      let piece = '';
+      for (const char of word) {
+        if (piece !== '' && safeWidth(font, (piece + char).trimEnd(), size) > maxWidth) {
+          lines.push(piece.trimEnd());
+          piece = char;
+        } else {
+          piece += char;
+        }
+      }
+      current = piece;
     }
     if (current !== '') lines.push(current.trimEnd());
   }

@@ -31,10 +31,10 @@ export class DemoBackend implements EditorBackend {
   private readonly assets = new Map<string, { url: string; bytes: Uint8Array; mimeType: string }>();
   private readonly fontLoader = createBrowserFontLoader(withBasePath('/fonts'));
 
-  constructor(
-    private readonly bytes: Uint8Array,
-    title: string,
-  ) {
+  private readonly bytes: Uint8Array;
+
+  constructor(bytes: Uint8Array, title: string) {
+    this.bytes = bytes;
     this.title = title;
     this.pdfUrl = URL.createObjectURL(
       new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' }),

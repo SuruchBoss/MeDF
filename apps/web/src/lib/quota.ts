@@ -8,11 +8,11 @@ import { getPlan } from './plans';
  */
 
 export class QuotaError extends Error {
-  constructor(
-    message: string,
-    readonly hint = 'อัปเกรดแพ็กเกจเพื่อเพิ่มโควตา',
-  ) {
+  readonly hint: string;
+
+  constructor(message: string, hint = 'อัปเกรดแพ็กเกจเพื่อเพิ่มโควตา') {
     super(message);
+    this.hint = hint;
     this.name = 'QuotaError';
   }
 }

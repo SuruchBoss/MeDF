@@ -20,11 +20,11 @@ import {
 import { assertCanCreateDocument, assertPageCountAllowed, recordUsage } from './quota';
 
 export class DocumentError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
     super(message);
+    this.status = status;
     this.name = 'DocumentError';
   }
 }

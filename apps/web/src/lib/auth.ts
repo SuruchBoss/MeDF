@@ -69,11 +69,11 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
 }
 
 export class AuthError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
     super(message);
+    this.status = status;
     this.name = 'AuthError';
   }
 }
