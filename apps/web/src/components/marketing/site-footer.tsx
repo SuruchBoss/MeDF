@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { Logo } from '@/components/icons';
+import { useT } from '@/lib/i18n/provider';
 
 export function SiteFooter({
   variant = 'product',
@@ -10,6 +13,7 @@ export function SiteFooter({
   repoUrl?: string;
   tryHref?: string;
 }) {
+  const t = useT();
   const isDemo = variant === 'demo';
 
   return (
@@ -17,46 +21,43 @@ export function SiteFooter({
       <div className="container-page grid gap-10 py-12 md:grid-cols-4">
         <div className="md:col-span-2">
           <Logo />
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-ink-500">
-            MeDF คือเครื่องมือแก้ไข PDF ที่ทำงานเหมือนโปรแกรมออกแบบ — ลากวาง ปรับขนาด
-            จัดเรียงองค์ประกอบได้อิสระ แล้ว Export กลับเป็น PDF โดยคงคุณภาพต้นฉบับไว้ทั้งหมด
-          </p>
+          <p className="mt-3 max-w-sm text-sm leading-relaxed text-ink-500">{t('footer.tagline')}</p>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-ink-900">ผลิตภัณฑ์</h3>
+          <h3 className="text-sm font-semibold text-ink-900">{t('footer.product')}</h3>
           <ul className="mt-3 space-y-2 text-sm text-ink-500">
             <li>
               <Link href="/#features" className="hover:text-ink-900">
-                ฟีเจอร์ทั้งหมด
+                {t('footer.allFeatures')}
               </Link>
             </li>
             <li>
               <Link href={isDemo ? '/#pricing' : '/pricing'} className="hover:text-ink-900">
-                แพ็กเกจและราคา
+                {t('footer.plansAndPricing')}
               </Link>
             </li>
             <li>
               <Link href="/#desktop" className="hover:text-ink-900">
-                เวอร์ชัน Windows
+                {t('footer.windowsVersion')}
               </Link>
             </li>
           </ul>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-ink-900">
-            {isDemo ? 'โอเพนซอร์ส' : 'บัญชี'}
+            {isDemo ? t('footer.openSource') : t('footer.account')}
           </h3>
           <ul className="mt-3 space-y-2 text-sm text-ink-500">
             {isDemo ? (
               <>
                 <li>
                   <Link href={tryHref} className="hover:text-ink-900">
-                    ลองใช้ทันที (ไม่ต้องสมัคร)
+                    {t('footer.tryNoSignup')}
                   </Link>
                 </li>
                 <li>
                   <a href={repoUrl} className="hover:text-ink-900" target="_blank" rel="noreferrer">
-                    ซอร์สโค้ดบน GitHub
+                    {t('footer.sourceOnGitHub')}
                   </a>
                 </li>
                 <li>
@@ -66,7 +67,7 @@ export function SiteFooter({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    โมเดล open core
+                    {t('footer.openCoreModel')}
                   </a>
                 </li>
               </>
@@ -74,17 +75,17 @@ export function SiteFooter({
               <>
                 <li>
                   <Link href="/register" className="hover:text-ink-900">
-                    สมัครสมาชิก
+                    {t('footer.register')}
                   </Link>
                 </li>
                 <li>
                   <Link href="/login" className="hover:text-ink-900">
-                    เข้าสู่ระบบ
+                    {t('footer.login')}
                   </Link>
                 </li>
                 <li>
                   <Link href="/app/billing" className="hover:text-ink-900">
-                    จัดการการสมัครสมาชิก
+                    {t('footer.manageSubscription')}
                   </Link>
                 </li>
               </>
@@ -94,8 +95,8 @@ export function SiteFooter({
       </div>
       <div className="border-t border-ink-100">
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-ink-400 sm:flex-row">
-          <p>© {new Date().getFullYear()} MeDF. สงวนลิขสิทธิ์ทั้งหมด</p>
-          <p>ฟอนต์ Sarabun ภายใต้สัญญาอนุญาต SIL Open Font License 1.1</p>
+          <p>{t('footer.rights', { year: new Date().getFullYear() })}</p>
+          <p>{t('footer.fontLicence')}</p>
         </div>
       </div>
     </footer>

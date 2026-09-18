@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { ErrorScreen } from '@/components/error-screen';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Catches a render or data error anywhere under the root layout.
@@ -19,6 +20,8 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useT();
+
   useEffect(() => {
     console.error('[medf] unhandled error', error);
   }, [error]);
@@ -26,15 +29,15 @@ export default function AppError({
   return (
     <ErrorScreen
       code="500"
-      title="เกิดข้อผิดพลาดที่ไม่คาดคิด"
-      description="ระบบขัดข้องชั่วคราว งานที่บันทึกไว้แล้วยังอยู่ครบ ลองใหม่อีกครั้งได้เลย"
-      detail={error.digest ? `รหัสอ้างอิง: ${error.digest}` : undefined}
+      title={t('error.unexpectedTitle')}
+      description={t('error.unexpectedBody')}
+      detail={error.digest ? t('error.reference', { digest: error.digest }) : undefined}
     >
       <button type="button" onClick={reset} className="btn-primary btn-sm">
-        ลองใหม่อีกครั้ง
+        {t('common.retry')}
       </button>
       <Link href="/app" className="btn-secondary btn-sm">
-        เอกสารของฉัน
+        {t('error.myDocuments')}
       </Link>
     </ErrorScreen>
   );

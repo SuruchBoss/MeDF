@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createTranslator } from '@/lib/i18n';
+import { detectLocaleInBrowser } from '@/lib/i18n/provider';
 
 /**
  * Last resort: the root layout itself failed, so there is no `<html>` yet and
@@ -16,12 +18,16 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // The root layout failed, so there is no LocaleProvider above this to ask.
+  const locale = detectLocaleInBrowser();
+  const t = createTranslator(locale);
+
   useEffect(() => {
     console.error('[medf] fatal error', error);
   }, [error]);
 
   return (
-    <html lang="th">
+    <html lang={locale}>
       <body
         style={{
           margin: 0,
@@ -39,10 +45,10 @@ export default function GlobalError({
         }}
       >
         <p style={{ fontSize: '3rem', fontWeight: 800, color: '#4f46e5', margin: 0 }}>MeDF</p>
-        <h1 style={{ fontSize: '1.15rem', margin: 0 }}>ระบบขัดข้อง</h1>
+        <h1 style={{ fontSize: '1.15rem', margin: 0 }}>{t('error.fatalTitle')}</h1>
         <p style={{ maxWidth: '28rem', fontSize: '0.9rem', lineHeight: 1.7, color: '#475569' }}>
-          ไม่สามารถโหลดหน้าเว็บได้ กรุณาลองใหม่อีกครั้ง หากยังไม่ได้ให้รีเฟรชเบราว์เซอร์
-          {error.digest ? ` (รหัสอ้างอิง: ${error.digest})` : ''}
+          {t('error.fatalBody')}
+          {error.digest ? ` (${t('error.reference', { digest: error.digest })})` : ''}
         </p>
         <button
           type="button"
@@ -58,7 +64,7 @@ export default function GlobalError({
             cursor: 'pointer',
           }}
         >
-          ลองใหม่อีกครั้ง
+          {t('common.retry')}
         </button>
       </body>
     </html>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
 import { useHydrated } from '@/lib/client/use-hydrated';
+import { useT } from '@/lib/i18n/provider';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -14,6 +15,7 @@ interface AuthFormProps {
 
 export function AuthForm({ mode, next }: AuthFormProps) {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,14 +42,14 @@ export function AuthForm({ mode, next }: AuthFormProps) {
       const payload = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        setError(payload.error ?? 'ไม่สามารถดำเนินการได้ กรุณาลองอีกครั้ง');
+        setError(payload.error ?? t('auth.unknownError'));
         return;
       }
       // A full refresh makes the server components pick up the new session.
       router.replace(next);
       router.refresh();
     } catch {
-      setError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      setError(t('auth.networkError'));
     } finally {
       setBusy(false);
     }
@@ -58,14 +60,14 @@ export function AuthForm({ mode, next }: AuthFormProps) {
       {isRegister ? (
         <div>
           <label className="label" htmlFor="name">
-            ชื่อที่ใช้แสดง
+            {t('auth.displayName')}
           </label>
           <input
             id="name"
             className="field"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="สมชาย ใจดี"
+            placeholder={t('auth.namePlaceholder')}
             autoComplete="name"
             required
             maxLength={80}
@@ -75,7 +77,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
 
       <div>
         <label className="label" htmlFor="email">
-          อีเมล
+          {t('auth.email')}
         </label>
         <input
           id="email"
@@ -91,7 +93,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
 
       <div>
         <label className="label" htmlFor="password">
-          รหัสผ่าน
+          {t('auth.password')}
         </label>
         <div className="relative">
           <input
@@ -100,7 +102,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
             className="field pr-11"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder={isRegister ? 'อย่างน้อย 8 ตัวอักษร' : '••••••••'}
+            placeholder={isRegister ? t('auth.passwordMinPlaceholder') : '••••••••'}
             autoComplete={isRegister ? 'new-password' : 'current-password'}
             minLength={8}
             required
@@ -109,14 +111,14 @@ export function AuthForm({ mode, next }: AuthFormProps) {
             type="button"
             onClick={() => setShowPassword((value) => !value)}
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-            aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
           >
             <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
           </button>
         </div>
         {isRegister ? (
           <p className="mt-1.5 text-xs text-ink-400">
-            แนะนำให้ใช้ตัวอักษรผสมตัวเลข เพื่อความปลอดภัยของเอกสารของคุณ
+            {t('auth.passwordHint')}
           </p>
         ) : null}
       </div>
@@ -132,22 +134,22 @@ export function AuthForm({ mode, next }: AuthFormProps) {
 
       <button type="submit" className="btn-primary w-full py-3" disabled={busy || !ready}>
         {busy || !ready ? <Spinner size={17} /> : null}
-        {isRegister ? 'สมัครสมาชิกฟรี' : 'เข้าสู่ระบบ'}
+        {isRegister ? t('auth.register') : t('auth.login')}
       </button>
 
       <p className="text-center text-sm text-ink-500">
         {isRegister ? (
           <>
-            มีบัญชีอยู่แล้ว?{' '}
+            {t('auth.hasAccount')}{' '}
             <Link href="/login" className="font-semibold text-brand-600 hover:underline">
-              เข้าสู่ระบบ
+              {t('auth.login')}
             </Link>
           </>
         ) : (
           <>
-            ยังไม่มีบัญชี?{' '}
+            {t('auth.needsAccount')}{' '}
             <Link href="/register" className="font-semibold text-brand-600 hover:underline">
-              สมัครฟรี
+              {t('auth.registerShort')}
             </Link>
           </>
         )}

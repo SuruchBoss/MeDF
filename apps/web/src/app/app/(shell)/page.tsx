@@ -4,10 +4,13 @@ import { ensurePlanFresh } from '@/lib/billing';
 import { listDocuments } from '@/lib/documents';
 import { getUsageSummary } from '@/lib/quota';
 import { DocumentManager } from '@/components/app/document-manager';
+import { getTranslator } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'เอกสารของฉัน' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslator())('meta.documents') };
+}
 
 export default async function DashboardPage() {
   const user = await ensurePlanFresh(await requireUser());

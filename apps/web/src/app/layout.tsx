@@ -1,24 +1,24 @@
 import type { Metadata, Viewport } from 'next';
 import { FontFaces } from '@/components/font-faces';
+import { LocaleProvider } from '@/lib/i18n/provider';
+import { getLocale, getTranslator } from '@/lib/i18n/server';
 import '@/styles/globals.css';
 
-export const metadata: Metadata = {
-  title: {
-    default: 'MeDF — แก้ไข PDF ด้วยการลากวาง',
-    template: '%s · MeDF',
-  },
-  description:
-    'อัปโหลด PDF แล้วลากวางข้อความ รูปภาพ ลายเซ็น และรูปทรงลงในหน้าเอกสารได้ทันที ปรับขนาด จัดเรียง แล้ว Export กลับเป็น PDF คุณภาพเดิม',
-  keywords: ['PDF', 'แก้ไข PDF', 'เซ็นเอกสาร', 'ลากวาง', 'MeDF', 'PDF editor ไทย'],
-  applicationName: 'MeDF',
-  authors: [{ name: 'MeDF' }],
-  openGraph: {
-    title: 'MeDF — แก้ไข PDF ด้วยการลากวาง',
-    description:
-      'อัปโหลด PDF ลากวางข้อความ รูปภาพ ลายเซ็น ปรับขนาดอิสระ แล้ว Export กลับเป็น PDF',
-    type: 'website',
-  },
-};
+/** Search results and link previews follow the reader's language too. */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslator();
+  const title = t('meta.title');
+  const description = t('meta.description');
+
+  return {
+    title: { default: title, template: '%s · MeDF' },
+    description,
+    keywords: ['PDF', 'PDF editor', 'edit PDF', 'sign PDF', 'แก้ไข PDF', 'เซ็นเอกสาร', 'MeDF'],
+    applicationName: 'MeDF',
+    authors: [{ name: 'MeDF' }],
+    openGraph: { title, description, type: 'website' },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: '#4f46e5',
@@ -26,13 +26,19 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Resolved on the server so the first client render matches the HTML it is
+  // hydrating; a mismatch here would be a hydration error on every page.
+  const locale = await getLocale();
+
   return (
-    <html lang="th">
+    <html lang={locale}>
       <head>
         <FontFaces />
       </head>
-      <body className="min-h-full font-sans antialiased">{children}</body>
+      <body className="min-h-full font-sans antialiased">
+        <LocaleProvider locale={locale}>{children}</LocaleProvider>
+      </body>
     </html>
   );
 }

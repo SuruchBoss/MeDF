@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { ErrorScreen } from '@/components/error-screen';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Signed-in area. Split from the root boundary so a failure here keeps the
@@ -16,6 +17,8 @@ export default function AppAreaError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useT();
+
   useEffect(() => {
     console.error('[medf] error in the app area', error);
   }, [error]);
@@ -23,15 +26,15 @@ export default function AppAreaError({
   return (
     <ErrorScreen
       code="500"
-      title="เปิดหน้านี้ไม่สำเร็จ"
-      description="เอกสารและงานที่บันทึกไว้ยังปลอดภัย ลองโหลดหน้านี้ใหม่ หรือกลับไปที่รายการเอกสาร"
-      detail={error.digest ? `รหัสอ้างอิง: ${error.digest}` : undefined}
+      title={t('error.appTitle')}
+      description={t('error.appBody')}
+      detail={error.digest ? t('error.reference', { digest: error.digest }) : undefined}
     >
       <button type="button" onClick={reset} className="btn-primary btn-sm">
-        ลองใหม่อีกครั้ง
+        {t('common.retry')}
       </button>
       <Link href="/app" className="btn-secondary btn-sm">
-        เอกสารของฉัน
+        {t('error.myDocuments')}
       </Link>
     </ErrorScreen>
   );

@@ -7,10 +7,13 @@ import type { DocumentRecord } from '@/lib/db';
 import type { OverlayDoc } from '@/lib/editor-types';
 import { getPlan } from '@/lib/plans';
 import { EditorScreen } from '@/components/editor/editor-screen';
+import { getTranslator } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'แก้ไขเอกสาร' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslator())('meta.editor') };
+}
 
 export default async function EditorPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await ensurePlanFresh(await requireUser());

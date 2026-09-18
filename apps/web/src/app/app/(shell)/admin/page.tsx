@@ -5,10 +5,13 @@ import { readDb } from '@/lib/db';
 import { billingMode } from '@/lib/billing';
 import { formatBytes, formatDate } from '@/lib/format';
 import { PLANS, formatTHB } from '@/lib/plans';
+import { getTranslator } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'ผู้ดูแลระบบ' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslator())('meta.admin') };
+}
 
 /** Read-only overview of the members on this installation. */
 export default async function AdminPage() {
