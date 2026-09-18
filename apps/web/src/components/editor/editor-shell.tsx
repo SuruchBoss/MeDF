@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
 import { useDialog } from '@/components/ui/dialog';
 import { ApiError } from '@/lib/client/fetcher';
@@ -19,14 +12,12 @@ import { PagesPanel } from './pages-panel';
 import { PageStage } from './page-stage';
 import { PropertiesPanel } from './properties-panel';
 import { SignaturePad } from './signature-pad';
-import {
-  type EditorAction,
-  createInitialState,
-  editorReducer,
-  rotatedPageSize,
-} from './store';
+import { createInitialState, editorReducer } from './store';
 import { Toolbar } from './toolbar';
+import { useAutosave } from './use-autosave';
+import { useEditorShortcuts } from './use-editor-shortcuts';
 import { usePdfDocument } from './use-pdf';
+import { useZoomFit } from './use-zoom-fit';
 import { useInView } from './use-in-view';
 
 /**
@@ -37,7 +28,6 @@ import { useInView } from './use-in-view';
  * editor drives the real product and the browser-only demo.
  */
 
-const AUTOSAVE_DELAY = 1200;
 const PAGE_GAP = 28;
 
 export interface EditorShellProps {
@@ -66,19 +56,14 @@ export function EditorShell({
   const dialog = useDialog();
   const [state, dispatch] = useReducer(editorReducer, overlay, createInitialState);
   const [title, setTitle] = useState(initialTitle);
-  const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'error' | 'info'; message: string } | null>(
     backend.notice ? { tone: 'info', message: backend.notice } : null,
   );
   const [signatureOpen, setSignatureOpen] = useState(false);
 
-  const revisionRef = useRef(revision);
-  const savedOverlayRef = useRef<OverlayDoc>(state.overlay);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  // Kept in state as well: the page observer needs the container as its root,
-  // and a ref read during render would always be null on the first pass.
+  // The scrolling viewport is kept in state, not a ref: the page observer needs
+  // it as its root, and a ref read during render is null on the first pass.
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
@@ -108,212 +93,43 @@ export function EditorShell({
     return counts;
   }, [state.overlay.elements]);
 
-  // --- Persistence ---------------------------------------------------------
+  // --- Persistence, zoom and shortcuts -------------------------------------
 
-  const save = useCallback(
-    async (options: { silent?: boolean } = {}) => {
-      const snapshot = state.overlay;
-      if (snapshot === savedOverlayRef.current) return;
-
-      setSaving(true);
-      try {
-        const result = await backend.saveOverlay({
-          overlay: snapshot,
-          baseRevision: revisionRef.current,
-        });
-        revisionRef.current = result.revision;
-        savedOverlayRef.current = snapshot;
-        setSavedAt(new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
-        // Only clear the dirty flag when nothing changed while saving.
-        if (snapshot === state.overlay) dispatch({ type: 'saved' });
-      } catch (error) {
-        const message = error instanceof ApiError ? error.message : 'บันทึกไม่สำเร็จ';
-        if (!options.silent || error instanceof ApiError) {
-          setNotice({ tone: 'error', message });
-        }
-      } finally {
-        setSaving(false);
-      }
-    },
-    [backend, state.overlay],
-  );
-
-  useEffect(() => {
-    if (!state.dirty) return;
-    const timer = window.setTimeout(() => void save({ silent: true }), AUTOSAVE_DELAY);
-    return () => window.clearTimeout(timer);
-  }, [state.dirty, state.overlay, save]);
-
-  useEffect(() => {
-    function warn(event: BeforeUnloadEvent) {
-      if (!state.dirty) return;
-      event.preventDefault();
-    }
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [state.dirty]);
-
-  // --- Zoom to fit ---------------------------------------------------------
-
-  /**
-   * Zoom presets. Opening a document shows a whole page (that is what members
-   * expect from a PDF tool); the percentage button then toggles to fit-width.
-   */
-  const fitTo = useCallback(
-    (mode: 'page' | 'width') => {
-      const container = scrollRef.current;
-      const page = state.overlay.pages[state.activePage] ?? state.overlay.pages[0];
-      if (!container || !page) return;
-      const size = rotatedPageSize(page);
-      const byWidth = (container.clientWidth - 72) / size.width;
-      // Leave room for the page label and the gap between pages.
-      const byHeight = (container.clientHeight - 64) / size.height;
-      const zoom = mode === 'width' ? byWidth : Math.min(byWidth, byHeight);
-      dispatch({ type: 'zoom', zoom: Math.max(0.2, Math.min(2.5, zoom)) });
-    },
-    [state.overlay.pages, state.activePage],
-  );
-
-  const [fitMode, setFitMode] = useState<'page' | 'width'>('page');
-  const toggleFit = useCallback(() => {
-    const next = fitMode === 'page' ? 'width' : 'page';
-    setFitMode(next);
-    fitTo(next);
-  }, [fitMode, fitTo]);
-
-  useEffect(() => {
-    // Fit once the first render has measured the container.
-    const timer = window.setTimeout(() => fitTo('page'), 60);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  const reportError = useCallback((message: string) => {
+    setNotice({ tone: 'error', message });
   }, []);
+
+  const { save, saving, savedAt, markSaved, setRevision } = useAutosave({
+    backend,
+    state,
+    dispatch,
+    revision,
+    onError: reportError,
+  });
+
+  const { fitMode, toggleFit } = useZoomFit({
+    pages: state.overlay.pages,
+    activePage: state.activePage,
+    container: scrollEl,
+    dispatch,
+  });
+
+  const pickImage = useCallback(() => fileInputRef.current?.click(), []);
+  const openSignaturePad = useCallback(() => setSignatureOpen(true), []);
+
+  useEditorShortcuts({
+    state,
+    dispatch,
+    selection,
+    save,
+    pickImage,
+    openSignaturePad,
+  });
 
   const jumpToPage = useCallback((index: number) => {
     dispatch({ type: 'activePage', page: index });
     pageRefs.current.get(index)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
-
-  // --- Keyboard shortcuts --------------------------------------------------
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-      if (state.editingId) return;
-
-      const meta = event.ctrlKey || event.metaKey;
-
-      if (meta && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        dispatch({ type: event.shiftKey ? 'redo' : 'undo' });
-        return;
-      }
-      if (meta && event.key.toLowerCase() === 'y') {
-        event.preventDefault();
-        dispatch({ type: 'redo' });
-        return;
-      }
-      if (meta && event.key.toLowerCase() === 's') {
-        event.preventDefault();
-        void save();
-        return;
-      }
-      if (meta && event.key.toLowerCase() === 'd') {
-        event.preventDefault();
-        dispatch({ type: 'duplicate' });
-        return;
-      }
-      if (meta && event.key.toLowerCase() === 'a') {
-        event.preventDefault();
-        dispatch({ type: 'selectAllOnPage' });
-        return;
-      }
-      if (meta && (event.key === '+' || event.key === '=')) {
-        event.preventDefault();
-        dispatch({ type: 'zoom', zoom: state.zoom + 0.1 });
-        return;
-      }
-      if (meta && event.key === '-') {
-        event.preventDefault();
-        dispatch({ type: 'zoom', zoom: state.zoom - 0.1 });
-        return;
-      }
-      if (meta && event.key === ']') {
-        event.preventDefault();
-        for (const element of selection) dispatch({ type: 'reorder', id: element.id, to: 'front' });
-        return;
-      }
-      if (meta && event.key === '[') {
-        event.preventDefault();
-        for (const element of selection) dispatch({ type: 'reorder', id: element.id, to: 'back' });
-        return;
-      }
-      if (meta) return;
-
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (state.selection.length === 0) return;
-        event.preventDefault();
-        dispatch({ type: 'delete' });
-        return;
-      }
-      if (event.key === 'Escape') {
-        dispatch({ type: 'select', ids: [] });
-        dispatch({ type: 'tool', tool: 'select' });
-        return;
-      }
-      if (event.key.startsWith('Arrow') && state.selection.length > 0) {
-        event.preventDefault();
-        const step = event.shiftKey ? 10 : 1;
-        const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
-        const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
-        dispatch({ type: 'checkpoint' });
-        for (const element of selection) {
-          dispatch({
-            type: 'updateOne',
-            id: element.id,
-            patch: { x: element.x + dx, y: element.y + dy },
-            history: false,
-          });
-        }
-        return;
-      }
-
-      const shortcuts: Record<string, EditorAction> = {
-        v: { type: 'tool', tool: 'select' },
-        t: { type: 'tool', tool: 'text' },
-        r: { type: 'tool', tool: 'rect' },
-        o: { type: 'tool', tool: 'ellipse' },
-        l: { type: 'tool', tool: 'line' },
-        h: { type: 'tool', tool: 'highlight' },
-        k: { type: 'tool', tool: 'check' },
-      };
-      const action = shortcuts[event.key.toLowerCase()];
-      if (action) {
-        event.preventDefault();
-        dispatch(action);
-        return;
-      }
-      if (event.key.toLowerCase() === 'i') {
-        event.preventDefault();
-        fileInputRef.current?.click();
-      }
-      if (event.key.toLowerCase() === 's') {
-        event.preventDefault();
-        setSignatureOpen(true);
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [save, selection, state.editingId, state.selection.length, state.zoom]);
 
   // --- Images --------------------------------------------------------------
 
@@ -363,9 +179,7 @@ export function EditorShell({
       link.click();
       URL.revokeObjectURL(url);
 
-      revisionRef.current += 1;
-      savedOverlayRef.current = state.overlay;
-      dispatch({ type: 'saved' });
+      markSaved(state.overlay);
       setNotice({
         tone: 'info',
         message:
@@ -396,7 +210,7 @@ export function EditorShell({
     try {
       const result = await backend.rename(next.trim());
       setTitle(result.title);
-      revisionRef.current = result.revision;
+      setRevision(result.revision);
     } catch (error) {
       setNotice({
         tone: 'error',
@@ -474,10 +288,7 @@ export function EditorShell({
         />
 
         <div
-          ref={(node) => {
-            scrollRef.current = node;
-            setScrollEl(node);
-          }}
+          ref={setScrollEl}
           className="editor-backdrop min-w-0 flex-1 overflow-auto p-6"
         >
           {pdf.loading ? (
