@@ -1,0 +1,27 @@
+{
+  "name": "medf-desktop",
+  "productName": "MeDF",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MeDF \u2014 \u0e42\u0e1b\u0e23\u0e41\u0e01\u0e23\u0e21\u0e41\u0e01\u0e49\u0e44\u0e02 PDF \u0e41\u0e1a\u0e1a\u0e25\u0e32\u0e01\u0e27\u0e32\u0e07 \u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a Windows",
+  "author": {
+    "name": "MeDF"
+  },
+  "license": "UNLICENSED",
+  "main": "src/main.js",
+  "scripts": {
+    "icon": "node scripts/make-icon.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/make-icon.mjs && node scripts/bundle-web.mjs",
+    "build:fast": "node scripts/make-icon.mjs && node scripts/bundle-web.mjs --skip-build",
+    "start": "electron .",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "dist:win:portable": "npm run build && electron-builder --win portable --publish never",
+    "dist:win:all": "npm run build && electron-builder --win --publish never",
+    "dist:dir": "npm run build && electron-builder --dir --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.4.2",
+    "electron-builder": "26.15.3"
+  }
+}

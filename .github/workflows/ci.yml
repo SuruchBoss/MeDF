@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The guard inspects tracked files, so it needs the real index.
+          fetch-depth: 0
+
+      - name: Guard against paid-tier code in this public repository
+        run: node scripts/guard-private.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # Electron's binary is not needed to test the web app.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: API end-to-end tests
+        run: npm run test:api
+
+      - name: Standalone bundle check
+        run: |
+          node apps/web/scripts/prepare-standalone.mjs
+          npm run test:standalone
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Editor UI tests
+        run: npm run test:ui
+
+      - name: Try-it-now editor tests
+        run: npm run test:demo
+
+      - name: Static demo build and check
+        run: |
+          npm run demo:build
+          npm run test:static
+        env:
+          NEXT_PUBLIC_BASE_PATH: /MeDF
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medf-ci-artifacts
+          path: |
+            apps/web/.next/build-manifest.json
+          retention-days: 5
+          if-no-files-found: ignore
