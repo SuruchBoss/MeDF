@@ -1,6 +1,9 @@
 'use client';
 
-/** Thin JSON fetch wrapper that surfaces the API's Thai error messages. */
+import { createTranslator } from '@/lib/i18n';
+import { detectLocaleInBrowser } from '@/lib/i18n/provider';
+
+/** Thin JSON fetch wrapper that surfaces the API's own error messages. */
 
 export class ApiError extends Error {
   readonly status: number;
@@ -26,7 +29,8 @@ export async function apiFetch<T>(input: string, init?: RequestInit): Promise<T>
   });
 
   if (!response.ok) {
-    let message = `คำขอไม่สำเร็จ (${response.status})`;
+    const t = createTranslator(detectLocaleInBrowser());
+  let message = t('fetch.failed', { status: response.status });
     let code: string | undefined;
     try {
       const payload = (await response.json()) as { error?: string; code?: string };
@@ -49,6 +53,8 @@ export function uploadWithProgress<T>(options: {
   onProgress?: (percent: number) => void;
   signal?: AbortSignal;
 }): Promise<T> {
+  const t = createTranslator(detectLocaleInBrowser());
+
   return new Promise<T>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('POST', options.url);
@@ -68,17 +74,15 @@ export function uploadWithProgress<T>(options: {
       }
       reject(
         new ApiError(
-          payload?.error ?? `อัปโหลดไม่สำเร็จ (${request.status})`,
+          payload?.error ?? t('fetch.uploadFailed', { status: request.status }),
           request.status,
           payload?.code,
         ),
       );
     });
 
-    request.addEventListener('error', () =>
-      reject(new ApiError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ขณะอัปโหลด', 0)),
-    );
-    request.addEventListener('abort', () => reject(new ApiError('ยกเลิกการอัปโหลดแล้ว', 0)));
+    request.addEventListener('error', () => reject(new ApiError(t('fetch.uploadNetwork'), 0)));
+    request.addEventListener('abort', () => reject(new ApiError(t('fetch.aborted'), 0)));
 
     options.signal?.addEventListener('abort', () => request.abort());
     request.send(options.form);

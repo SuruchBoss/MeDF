@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/client/fetcher';
 import type { OverlayDoc } from '@/lib/editor-types';
 import type { EditorBackend } from './backend';
 import type { EditorAction } from './store';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Saving: the debounce, the revision the server last agreed to, and the
@@ -30,6 +31,7 @@ export interface AutosaveOptions {
 }
 
 export function useAutosave({ backend, state, dispatch, revision, onError }: AutosaveOptions) {
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
@@ -57,13 +59,13 @@ export function useAutosave({ backend, state, dispatch, revision, onError }: Aut
         // A silent autosave still reports a real API error — a revision
         // conflict or a lost session is something the member must see.
         if (!options.silent || error instanceof ApiError) {
-          onError(error instanceof ApiError ? error.message : 'บันทึกไม่สำเร็จ');
+          onError(error instanceof ApiError ? error.message : t('shell.saveFailed'));
         }
       } finally {
         setSaving(false);
       }
     },
-    [backend, dispatch, onError, state.overlay],
+    [backend, dispatch, onError, state.overlay, t],
   );
 
   useEffect(() => {

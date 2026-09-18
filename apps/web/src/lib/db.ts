@@ -189,7 +189,7 @@ async function loadFromDisk(): Promise<Database> {
       const backup = `${DB_FILE}.corrupt-${Date.now()}`;
       await fs.rename(DB_FILE, backup).catch(() => undefined);
       throw new Error(
-        `ไม่สามารถอ่านฐานข้อมูลได้ (${DB_FILE}) ไฟล์เดิมถูกสำรองไว้ที่ ${backup}`,
+        `Could not read the database (${DB_FILE}). The old file was kept at ${backup}.`,
       );
     }
     throw error;

@@ -17,6 +17,7 @@ export default async function RegisterPage({
   searchParams: Promise<{ plan?: string; interval?: string }>;
 }) {
   if (await getCurrentUser()) redirect('/app');
+  const t = await getTranslator();
 
   const { plan, interval } = await searchParams;
   // Carry a plan chosen on the pricing page through to checkout.
@@ -27,8 +28,8 @@ export default async function RegisterPage({
 
   return (
     <AuthShell
-      title="สมัครสมาชิก MeDF"
-      subtitle="ใช้งานฟรีได้ทันที ไม่ต้องกรอกบัตรเครดิต"
+      title={t('authshell.registerTitle')}
+      subtitle={t('authshell.registerSubtitle')}
     >
       <AuthForm mode="register" next={next} />
     </AuthShell>

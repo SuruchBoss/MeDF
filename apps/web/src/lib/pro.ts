@@ -100,15 +100,15 @@ function candidatePaths(): string[] {
 function validate(candidate: unknown, origin: string): ProModule {
   const addon = candidate as Partial<ProModule> | undefined;
   if (!addon || typeof addon !== 'object') {
-    throw new Error(`โมดูลที่ ${origin} ไม่ได้ export object`);
+    throw new Error(`The module at ${origin} does not export an object`);
   }
   if (!addon.id || !addon.version || !Array.isArray(addon.features)) {
-    throw new Error(`โมดูลที่ ${origin} ขาดฟิลด์ id, version หรือ features`);
+    throw new Error(`The module at ${origin} is missing id, version or features`);
   }
   const unknown = addon.features.filter((key) => !(key in FEATURES));
   if (unknown.length > 0) {
     throw new Error(
-      `โมดูลที่ ${origin} ประกาศฟีเจอร์ที่ไม่มีใน features.ts: ${unknown.join(', ')}`,
+      `The module at ${origin} declares features not present in features.ts: ${unknown.join(', ')}`,
     );
   }
   return addon as ProModule;
@@ -145,7 +145,7 @@ export function loadProModule(): ProModule | null {
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'MODULE_NOT_FOUND' || code === 'ERR_MODULE_NOT_FOUND') continue;
       state.error = (error as Error).message;
-      console.warn(`[medf] ไม่สามารถโหลดโมดูลเสริมจาก ${candidate}: ${state.error}`);
+      console.warn(`[medf] could not load the add-on module from ${candidate}: ${state.error}`);
     }
   }
   return null;

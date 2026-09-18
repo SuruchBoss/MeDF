@@ -32,8 +32,9 @@ async function pageGeometryOrFail(bytes: Uint8Array) {
   try {
     return await readPageGeometry(bytes);
   } catch (error) {
+    // The geometry reader already chose the right key; keep it and its detail.
     if (error instanceof PdfGeometryError) {
-      throw new DocumentError('doc.error.unreadablePdf', { status: 422 });
+      throw new DocumentError(error.key, { status: 422, params: error.params });
     }
     throw error;
   }

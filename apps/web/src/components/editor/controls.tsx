@@ -1,6 +1,7 @@
 'use client';
 
 import { type ReactNode, useState } from 'react';
+import { useT } from '@/lib/i18n/provider';
 
 /** Small, self-contained form controls used by the editor panels. */
 
@@ -102,6 +103,8 @@ export function ColorField({
   onChange: (value: string | null) => void;
   allowNone?: boolean;
 }) {
+  const t = useT();
+
   return (
     <div className="flex-1">
       <span className="mb-1 block text-[11px] text-ink-500">{label}</span>
@@ -116,7 +119,7 @@ export function ColorField({
         <input
           type="text"
           value={value ?? ''}
-          placeholder={allowNone ? 'ไม่มีสี' : '#000000'}
+          placeholder={allowNone ? t('control.noColour') : '#000000'}
           onChange={(event) => {
             const next = event.target.value.trim();
             if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(next)) onChange(next);
@@ -134,9 +137,9 @@ export function ColorField({
                 ? 'border-ink-200 text-ink-500 hover:bg-ink-50'
                 : 'border-brand-500 bg-brand-50 text-brand-700'
             }`}
-            title="สลับไม่มีสี"
+            title={t('control.toggleNoColour')}
           >
-            ไม่มี
+            {t('control.none')}
           </button>
         ) : null}
       </div>

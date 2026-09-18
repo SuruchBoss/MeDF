@@ -38,7 +38,7 @@ export const nodeFontLoader: FontLoader = (fileName) => {
         /* try the next location */
       }
     }
-    throw new Error(`ไม่พบไฟล์ฟอนต์ ${fileName} (ค้นหาที่: ${tried.join(', ')})`);
+    throw new Error(`Font file ${fileName} not found (looked in: ${tried.join(', ')})`);
   })();
 
   cache.set(fileName, promise);

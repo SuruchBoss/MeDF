@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Renders one page of the source PDF into a canvas.
@@ -27,6 +28,7 @@ export function PdfPageCanvas({
   /** False when the page is far outside the viewport. */
   active: boolean;
 }) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const taskRef = useRef<RenderTask | null>(null);
   const [rendered, setRendered] = useState(false);
@@ -94,7 +96,7 @@ export function PdfPageCanvas({
           className="absolute inset-0 flex items-center justify-center bg-white text-xs text-ink-400"
           aria-hidden="true"
         >
-          กำลังเรนเดอร์หน้า {sourceIndex + 1}…
+          {t('stage.renderingPage', { number: sourceIndex + 1 })}
         </div>
       ) : null}
     </>

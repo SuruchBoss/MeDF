@@ -12,6 +12,8 @@ import { createSampleDocument } from '@/lib/pdf/sample-document';
 import { withBasePath } from '@/lib/base-path';
 import { formatBytes } from '@/lib/format';
 import { PLANS } from '@/lib/plans';
+import type { MessageKey } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n/provider';
 
 /**
  * The try-it-now experience.
@@ -33,6 +35,8 @@ interface Session {
 }
 
 export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
+  const t = useT();
+  const locale = useLocale();
   const [session, setSession] = useState<Session | null>(null);
   const [busy, setBusy] = useState<'file' | 'sample' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,18 +56,14 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
 
     const maxBytes = FREE.maxUploadMb * 1024 * 1024;
     if (sizeBytes > maxBytes) {
-      setError(
-        `ไฟล์ใหญ่ ${formatBytes(sizeBytes)} — โหมดทดลอง (แพ็กเกจ Free) รับไม่เกิน ${FREE.maxUploadMb} MB`,
-      );
+      setError(t('demo.tooLarge', { size: formatBytes(sizeBytes), limit: FREE.maxUploadMb }));
       return;
     }
 
     try {
       const pages = await readPageGeometry(bytes);
       if (pages.length > FREE.maxPages) {
-        setError(
-          `เอกสารมี ${pages.length} หน้า — โหมดทดลอง (แพ็กเกจ Free) รองรับไม่เกิน ${FREE.maxPages} หน้า`,
-        );
+        setError(t('demo.tooManyPages', { pages: pages.length, limit: FREE.maxPages }));
         return;
       }
       setSession({
@@ -74,22 +74,22 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
     } catch (openError) {
       setError(
         openError instanceof PdfGeometryError
-          ? openError.message
-          : `เปิดไฟล์ไม่สำเร็จ: ${(openError as Error).message}`,
+          ? t(openError.key, openError.params)
+          : t('demo.openFailed', { reason: (openError as Error).message }),
       );
     }
-  }, []);
+  }, [t]);
 
   async function handleFile(file: File) {
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     if (!isPdf) {
-      setError('รองรับเฉพาะไฟล์ PDF เท่านั้น');
+      setError(t('demo.onlyPdf'));
       return;
     }
     setBusy('file');
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      await open(bytes, file.name.replace(/\.pdf$/i, '') || 'เอกสารของฉัน', bytes.byteLength);
+      await open(bytes, file.name.replace(/\.pdf$/i, '') || t('demo.untitled'), bytes.byteLength);
     } finally {
       setBusy(null);
     }
@@ -98,10 +98,13 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
   async function handleSample() {
     setBusy('sample');
     try {
-      const bytes = await createSampleDocument(createBrowserFontLoader(withBasePath('/fonts')));
-      await open(bytes, 'สัญญาจ้างทำงาน (ตัวอย่าง)', bytes.byteLength);
+      const bytes = await createSampleDocument(
+        createBrowserFontLoader(withBasePath('/fonts')),
+        locale,
+      );
+      await open(bytes, t('demo.sampleTitle'), bytes.byteLength);
     } catch (sampleError) {
-      setError(`สร้างเอกสารตัวอย่างไม่สำเร็จ: ${(sampleError as Error).message}`);
+      setError(t('demo.sampleFailed', { reason: (sampleError as Error).message }));
     } finally {
       setBusy(null);
     }
@@ -119,7 +122,7 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
           plan="free"
           watermark={FREE.watermark}
           backHref={homeHref}
-          backLabel="ออกจากโหมดทดลอง"
+          backLabel={t('demo.back')}
         />
       </div>
     );
@@ -132,7 +135,7 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
           <Link href={homeHref} className="text-ink-900">
             <Logo />
           </Link>
-          <span className="badge bg-brand-50 text-brand-700">โหมดทดลอง · แพ็กเกจ Free</span>
+          <span className="badge bg-brand-50 text-brand-700">{t('demo.badge')}</span>
         </div>
       </header>
 
@@ -140,11 +143,10 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
         <div className="w-full max-w-2xl">
           <div className="text-center">
             <h1 className="text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
-              ลองแก้ไข PDF ได้เลย ไม่ต้องสมัครสมาชิก
+              {t('demo.title')}
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-ink-600">
-              เลือกไฟล์ PDF จากเครื่องของคุณ แล้วลากวางข้อความ รูปภาพ หรือลายเซ็นลงไปได้ทันที
-              จากนั้นกด Export เพื่อดาวน์โหลดไฟล์ใหม่
+              {t('demo.intro')}
             </p>
           </div>
 
@@ -179,9 +181,9 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
               <Icon name="upload" size={26} />
             </span>
-            <h2 className="mt-4 text-lg font-bold text-ink-900">ลากไฟล์ PDF มาวางที่นี่</h2>
+            <h2 className="mt-4 text-lg font-bold text-ink-900">{t('demo.dropHere')}</h2>
             <p className="mt-1 text-sm text-ink-500">
-              ไม่เกิน {FREE.maxUploadMb} MB และ {FREE.maxPages} หน้า
+              {t('demo.dropLimits', { size: FREE.maxUploadMb, pages: FREE.maxPages })}
             </p>
 
             <div className="mt-6 flex flex-wrap justify-center gap-3">
@@ -192,7 +194,7 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
                 disabled={busy != null}
               >
                 {busy === 'file' ? <Spinner size={17} /> : <Icon name="file-text" size={17} />}
-                เลือกไฟล์จากเครื่อง
+                {t('demo.pickFile')}
               </button>
               <button
                 type="button"
@@ -201,7 +203,7 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
                 disabled={busy != null}
               >
                 {busy === 'sample' ? <Spinner size={17} /> : <Icon name="sparkles" size={17} />}
-                ใช้เอกสารตัวอย่าง
+                {t('demo.useSample')}
               </button>
             </div>
 
@@ -217,21 +219,32 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
 
           <ul className="mt-8 grid gap-3 sm:grid-cols-3">
             {[
-              { icon: 'shield' as const, title: 'ไฟล์ไม่ออกจากเครื่อง', body: 'ทุกอย่างทำงานในเบราว์เซอร์ ไม่มีการอัปโหลด' },
-              { icon: 'cursor' as const, title: 'เครื่องมือครบ', body: 'ข้อความ รูปภาพ ลายเซ็น รูปทรง ไฮไลต์' },
-              { icon: 'download' as const, title: 'Export ได้จริง', body: 'ได้ไฟล์ PDF ใหม่ที่ยังคัดลอกข้อความได้' },
+              {
+                icon: 'shield' as const,
+                title: 'demo.point.private' as MessageKey,
+                body: 'demo.point.privateBody' as MessageKey,
+              },
+              {
+                icon: 'cursor' as const,
+                title: 'demo.point.tools' as MessageKey,
+                body: 'demo.point.toolsBody' as MessageKey,
+              },
+              {
+                icon: 'download' as const,
+                title: 'demo.point.export' as MessageKey,
+                body: 'demo.point.exportBody' as MessageKey,
+              },
             ].map((item) => (
               <li key={item.title} className="card p-4">
                 <Icon name={item.icon} size={18} className="text-brand-600" />
-                <p className="mt-2 text-sm font-semibold text-ink-900">{item.title}</p>
-                <p className="mt-0.5 text-xs text-ink-500">{item.body}</p>
+                <p className="mt-2 text-sm font-semibold text-ink-900">{t(item.title)}</p>
+                <p className="mt-0.5 text-xs text-ink-500">{t(item.body)}</p>
               </li>
             ))}
           </ul>
 
           <p className="mt-6 text-center text-xs text-ink-400">
-            โหมดทดลองไม่บันทึกงานไว้ — รีเฟรชหน้าแล้วต้องเริ่มใหม่ ·
-            ไฟล์ที่ export จะมีลายน้ำตามแพ็กเกจ Free
+            {t('demo.warning')}
           </p>
         </div>
       </main>

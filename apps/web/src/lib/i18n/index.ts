@@ -40,5 +40,12 @@ export function createTranslator(locale: Locale): Translate {
   };
 }
 
-export { DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, LOCALE_LABELS, isLocale } from './locales';
+export {
+  DEFAULT_LOCALE,
+  LOCALES,
+  LOCALE_COOKIE,
+  LOCALE_LABELS,
+  isLocale,
+  localeFromAcceptLanguage,
+} from './locales';
 export type { Locale } from './locales';

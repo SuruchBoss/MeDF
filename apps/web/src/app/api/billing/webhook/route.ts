@@ -36,11 +36,11 @@ async function findUserId(options: {
 }
 
 export async function POST(request: Request) {
-  if (!stripeEnabled) return jsonError('Stripe ไม่ได้เปิดใช้งาน', 503);
-  if (!stripeConfig.webhookSecret) return jsonError('ยังไม่ได้ตั้งค่า STRIPE_WEBHOOK_SECRET', 500);
+  if (!stripeEnabled) return jsonError('Stripe is not enabled', 503);
+  if (!stripeConfig.webhookSecret) return jsonError('STRIPE_WEBHOOK_SECRET is not configured', 500);
 
   const signature = request.headers.get('stripe-signature');
-  if (!signature) return jsonError('ไม่พบ stripe-signature header', 400);
+  if (!signature) return jsonError('Missing stripe-signature header', 400);
 
   const payload = await request.text();
   const { default: StripeClient } = await import('stripe');
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       stripeConfig.webhookSecret,
     );
   } catch (error) {
-    return jsonError(`ตรวจสอบลายเซ็น webhook ไม่ผ่าน: ${(error as Error).message}`, 400);
+    return jsonError(`Webhook signature check failed: ${(error as Error).message}`, 400);
   }
 
   switch (event.type) {

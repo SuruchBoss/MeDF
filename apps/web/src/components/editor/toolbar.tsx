@@ -5,11 +5,13 @@ import type { Dispatch } from 'react';
 import { Icon, type IconName, Spinner } from '@/components/icons';
 import { ELEMENT_LABELS } from '@/lib/editor-types';
 import type { EditorAction, Tool } from './store';
+import type { MessageKey } from '@/lib/i18n';
+import { useT } from '@/lib/i18n/provider';
 
 /** Top bar: document identity, insert tools, zoom, history and export. */
 
-const TOOLS: { tool: Tool; icon: IconName; label: string; shortcut?: string }[] = [
-  { tool: 'select', icon: 'cursor', label: 'เลือก / ย้าย', shortcut: 'V' },
+const TOOLS: { tool: Tool; icon: IconName; label: MessageKey; shortcut?: string }[] = [
+  { tool: 'select', icon: 'cursor', label: 'element.select', shortcut: 'V' },
   { tool: 'text', icon: 'text', label: ELEMENT_LABELS.text, shortcut: 'T' },
   { tool: 'image', icon: 'image', label: ELEMENT_LABELS.image, shortcut: 'I' },
   { tool: 'draw', icon: 'pen', label: ELEMENT_LABELS.draw, shortcut: 'S' },
@@ -61,8 +63,9 @@ export function Toolbar({
   onFit,
   fitMode,
   backHref = '/app',
-  backLabel = 'เอกสารของฉัน',
+  backLabel,
 }: ToolbarProps) {
+  const t = useT();
   function selectTool(next: Tool) {
     if (next === 'image') {
       onPickImage();
@@ -78,9 +81,13 @@ export function Toolbar({
   return (
     <div className="flex flex-col border-b border-ink-200 bg-white">
       <div className="flex h-14 items-center gap-3 px-3">
-        <Link href={backHref} className="btn-ghost btn-sm" title={backLabel}>
+        <Link
+          href={backHref}
+          className="btn-ghost btn-sm"
+          title={backLabel ?? t('appnav.documents')}
+        >
           <Icon name="chevron-left" size={17} />
-          <span className="hidden sm:inline">{backLabel}</span>
+          <span className="hidden sm:inline">{backLabel ?? t('appnav.documents')}</span>
         </Link>
 
         <div className="flex min-w-0 items-center gap-2">
@@ -88,18 +95,18 @@ export function Toolbar({
             type="button"
             onClick={onRename}
             className="max-w-[16rem] truncate rounded-lg px-2 py-1 text-sm font-semibold text-ink-900 hover:bg-ink-100"
-            title="คลิกเพื่อเปลี่ยนชื่อเอกสาร"
+            title={t('toolbar.renameHint')}
           >
             {title}
           </button>
           <span className="hidden text-xs text-ink-400 sm:inline">
             {saving
-              ? 'กำลังบันทึก…'
+              ? t('toolbar.saving')
               : dirty
-                ? 'ยังไม่บันทึก'
+                ? t('toolbar.unsaved')
                 : savedAt
-                  ? `บันทึกแล้ว ${savedAt}`
-                  : 'บันทึกอัตโนมัติเปิดอยู่'}
+                  ? t('toolbar.saved', { time: savedAt })
+                  : t('toolbar.autosaveOn')}
           </span>
         </div>
 
@@ -109,7 +116,7 @@ export function Toolbar({
             className="btn-ghost btn-sm"
             onClick={() => dispatch({ type: 'undo' })}
             disabled={!canUndo}
-            title="ย้อนกลับ (Ctrl+Z)"
+            title={t('toolbar.undo')}
           >
             <Icon name="undo" size={17} />
           </button>
@@ -118,7 +125,7 @@ export function Toolbar({
             className="btn-ghost btn-sm"
             onClick={() => dispatch({ type: 'redo' })}
             disabled={!canRedo}
-            title="ทำซ้ำ (Ctrl+Shift+Z)"
+            title={t('toolbar.redo')}
           >
             <Icon name="redo" size={17} />
           </button>
@@ -129,7 +136,7 @@ export function Toolbar({
             type="button"
             className="btn-ghost btn-sm"
             onClick={() => dispatch({ type: 'zoom', zoom: zoom - 0.1 })}
-            title="ย่อ"
+            title={t('toolbar.zoomOut')}
           >
             <Icon name="zoom-out" size={17} />
           </button>
@@ -137,7 +144,7 @@ export function Toolbar({
             type="button"
             onClick={onFit}
             className="min-w-[3.5rem] rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-100"
-            title={fitMode === 'page' ? 'พอดีความกว้างหน้าจอ' : 'พอดีทั้งหน้า'}
+            title={fitMode === 'page' ? t('toolbar.fitWidth') : t('toolbar.fitPage')}
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -145,7 +152,7 @@ export function Toolbar({
             type="button"
             className="btn-ghost btn-sm"
             onClick={() => dispatch({ type: 'zoom', zoom: zoom + 0.1 })}
-            title="ขยาย"
+            title={t('toolbar.zoomIn')}
           >
             <Icon name="zoom-in" size={17} />
           </button>
@@ -157,17 +164,17 @@ export function Toolbar({
             className="btn-secondary btn-sm"
             onClick={onSave}
             disabled={saving || !dirty}
-            title="บันทึก (Ctrl+S)"
+            title={t('toolbar.save')}
           >
             {saving ? <Spinner size={15} /> : <Icon name="save" size={15} />}
-            <span className="hidden sm:inline">บันทึก</span>
+            <span className="hidden sm:inline">{t('common.save')}</span>
           </button>
           <button
             type="button"
             className="btn-primary btn-sm"
             onClick={onExport}
             disabled={exporting}
-            title="Export เป็นไฟล์ PDF"
+            title={t('toolbar.export')}
           >
             {exporting ? <Spinner size={15} /> : <Icon name="download" size={15} />}
             Export PDF
@@ -187,7 +194,9 @@ export function Toolbar({
                 ? 'bg-brand-600 text-white'
                 : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
             }`}
-            title={item.shortcut ? `${item.label} (${item.shortcut})` : item.label}
+            title={
+              item.shortcut ? `${t(item.label)} (${item.shortcut})` : t(item.label)
+            }
           >
             <Icon name={item.icon} size={16} />
             <span className="hidden md:inline">{item.label}</span>
@@ -197,8 +206,8 @@ export function Toolbar({
         <span className="mx-1 h-5 w-px shrink-0 bg-ink-200" />
         <span className="shrink-0 text-xs text-ink-400">
           {tool === 'select'
-            ? 'ลากเพื่อเลือกหลายชิ้น · Shift+คลิกเพื่อเลือกเพิ่ม · ดับเบิลคลิกข้อความเพื่อแก้ไข'
-            : `คลิกบนหน้าเอกสารเพื่อวาง “${ELEMENT_LABELS[tool]}”`}
+            ? t('toolbar.hintSelect')
+            : t('toolbar.hintPlace', { element: t(ELEMENT_LABELS[tool]) })}
         </span>
       </div>
     </div>

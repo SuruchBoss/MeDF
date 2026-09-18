@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MessageKey, Translate } from './i18n';
 
 /**
  * The overlay document model.
@@ -25,8 +26,9 @@ export type ElementType = (typeof ELEMENT_TYPES)[number];
 export const FONT_FAMILIES = ['sarabun', 'helvetica', 'times', 'courier'] as const;
 export type FontFamily = (typeof FONT_FAMILIES)[number];
 
-export const FONT_LABELS: Record<FontFamily, string> = {
-  sarabun: 'Sarabun (ไทย)',
+/** Only Sarabun needs translating; the rest are typeface names. */
+export const FONT_LABELS: Record<FontFamily, MessageKey | string> = {
+  sarabun: 'font.sarabun',
   helvetica: 'Helvetica',
   times: 'Times',
   courier: 'Courier',
@@ -42,7 +44,7 @@ export const FONT_CSS: Record<FontFamily, string> = {
 
 const hexColor = z
   .string()
-  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'ต้องเป็นสีรูปแบบ #rrggbb');
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'validation.hexColour');
 
 const baseElement = {
   id: z.string().min(1).max(64),
@@ -177,22 +179,28 @@ export type AnyElement = z.infer<typeof elementSchema>;
 export type PageState = z.infer<typeof pageStateSchema>;
 export type OverlayDoc = z.infer<typeof overlaySchema>;
 
-export const ELEMENT_LABELS: Record<ElementType, string> = {
-  text: 'กล่องข้อความ',
-  image: 'รูปภาพ',
-  rect: 'สี่เหลี่ยม',
-  ellipse: 'วงกลม',
-  line: 'เส้น',
-  draw: 'ลายเซ็น',
-  highlight: 'ไฮไลต์',
-  check: 'เครื่องหมาย',
+export const ELEMENT_LABELS: Record<ElementType, MessageKey> = {
+  text: 'element.text',
+  image: 'element.image',
+  rect: 'element.rect',
+  ellipse: 'element.ellipse',
+  line: 'element.line',
+  draw: 'element.draw',
+  highlight: 'element.highlight',
+  check: 'element.check',
 };
 
-export function elementLabel(element: AnyElement): string {
+/**
+ * What to call an element in the layer list.
+ *
+ * A name the member typed wins, then the first line of a text box — both are
+ * the member's own words, so neither is translated. Only the fallback is.
+ */
+export function elementLabel(element: AnyElement, t: Translate): string {
   if (element.name) return element.name;
   if (element.type === 'text') {
     const firstLine = element.text.split('\n')[0]?.trim();
     if (firstLine) return firstLine.slice(0, 32);
   }
-  return ELEMENT_LABELS[element.type];
+  return t(ELEMENT_LABELS[element.type]);
 }

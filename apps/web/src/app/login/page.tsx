@@ -17,12 +17,13 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   if (await getCurrentUser()) redirect('/app');
+  const t = await getTranslator();
   const { next } = await searchParams;
   // Only allow same-site redirects.
   const target = next && next.startsWith('/') && !next.startsWith('//') ? next : '/app';
 
   return (
-    <AuthShell title="เข้าสู่ระบบ" subtitle="ยินดีต้อนรับกลับ — เอกสารของคุณรออยู่">
+    <AuthShell title={t('auth.login')} subtitle={t('authshell.loginSubtitle')}>
       <AuthForm mode="login" next={target} />
     </AuthShell>
   );

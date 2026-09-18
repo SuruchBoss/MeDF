@@ -19,7 +19,7 @@ export function createBrowserFontLoader(baseUrl = '/fonts'): FontLoader {
     const promise = (async () => {
       const response = await fetch(key);
       if (!response.ok) {
-        throw new Error(`โหลดฟอนต์ ${fileName} ไม่สำเร็จ (${response.status})`);
+        throw new Error(`Could not load font ${fileName} (${response.status})`);
       }
       return new Uint8Array(await response.arrayBuffer());
     })();

@@ -56,6 +56,11 @@ export interface RenderOptions {
   fontLoader: FontLoader;
   /** Free-plan exports carry a small footer credit. */
   watermark?: boolean;
+  /**
+   * The watermark sentence. Supplied by the caller because this module runs
+   * on both sides and has no translator; the export route has one.
+   */
+  watermarkText?: string;
   title?: string;
   author?: string;
 }
@@ -134,7 +139,7 @@ export async function renderOverlayToPdf(options: RenderOptions): Promise<Render
     (page) => !page.hidden && page.source >= 0 && page.source < sourcePageCount,
   );
   if (pages.length === 0) {
-    throw new Error('ไม่มีหน้าที่จะ export (ทุกหน้าถูกซ่อนไว้)');
+    throw new Error('Nothing to export: every page is hidden');
   }
 
   const copied = await out.copyPages(
@@ -194,12 +199,18 @@ export async function renderOverlayToPdf(options: RenderOptions): Promise<Render
     }
 
     if (options.watermark) {
-      await drawWatermark({ page: outPage, pageMatrix: matrix, fonts, base });
+      await drawWatermark({
+        page: outPage,
+        pageMatrix: matrix,
+        fonts,
+        base,
+        text: options.watermarkText ?? 'Made with MeDF',
+      });
     }
   }
 
   out.setProducer('MeDF');
-  out.setCreator('MeDF — โปรแกรมแก้ไข PDF');
+  out.setCreator('MeDF — PDF editor');
   if (options.title) out.setTitle(options.title);
   if (options.author) out.setAuthor(options.author);
   out.setModificationDate(new Date());
@@ -427,7 +438,7 @@ async function drawElement(context: DrawContext): Promise<void> {
     default: {
       // Exhaustiveness guard: a new element type must add a branch above.
       const exhaustive: never = element;
-      throw new Error(`ยังไม่รองรับ element ชนิดนี้: ${JSON.stringify(exhaustive)}`);
+      throw new Error(`Unsupported element type: ${JSON.stringify(exhaustive)}`);
     }
   }
 }
@@ -478,9 +489,10 @@ async function drawWatermark(options: {
   pageMatrix: Matrix;
   fonts: FontBook;
   base: { width: number; height: number };
+  text: string;
 }): Promise<void> {
   const { page, base } = options;
-  const text = 'สร้างด้วย MeDF — อัปเกรดเป็น Pro เพื่อลบข้อความนี้';
+  const text = options.text;
   const size = 8;
   const font = await options.fonts.load({ family: 'sarabun', bold: false, italic: false });
   const width = safeWidth(font, text, size);

@@ -15,6 +15,7 @@ import {
   type RectElement,
   type TextElement,
 } from '@/lib/editor-types';
+import { useT } from '@/lib/i18n/provider';
 import { ButtonGroup, ColorField, NumberField, Row, Section, ToggleButton } from './controls';
 import { type EditorAction, createPatcher } from './store';
 
@@ -53,25 +54,26 @@ export function ElementProperties({ element, dispatch }: PanelProps<AnyElement>)
     default: {
       // A new element type must add a panel above.
       const exhaustive: never = element;
-      throw new Error(`ยังไม่มีแผงคุณสมบัติสำหรับ: ${JSON.stringify(exhaustive)}`);
+      throw new Error(`No properties panel for: ${JSON.stringify(exhaustive)}`);
     }
   }
 }
 
 function TextProperties({ element, dispatch }: PanelProps<TextElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="ข้อความ">
+    <Section title={t('ep.title.text')}>
       <textarea
         className="field min-h-[72px] text-xs"
         value={element.text}
         onChange={(event) => patch({ text: event.target.value }, false)}
         onKeyDown={(event) => event.stopPropagation()}
-        placeholder="พิมพ์ข้อความ"
+        placeholder={t('ep.textPlaceholder')}
       />
       <label className="block">
-        <span className="mb-1 block text-[11px] text-ink-500">ฟอนต์</span>
+        <span className="mb-1 block text-[11px] text-ink-500">{t('ep.font')}</span>
         <select
           className="field px-2 py-1.5 text-xs"
           value={element.fontFamily}
@@ -81,14 +83,14 @@ function TextProperties({ element, dispatch }: PanelProps<TextElement>) {
         >
           {FONT_FAMILIES.map((family) => (
             <option key={family} value={family}>
-              {FONT_LABELS[family]}
+              {t(FONT_LABELS[family] as Parameters<typeof t>[0])}
             </option>
           ))}
         </select>
       </label>
       <Row>
         <NumberField
-          label="ขนาด"
+          label={t('ep.fontSize')}
           value={element.fontSize}
           min={4}
           max={400}
@@ -96,7 +98,7 @@ function TextProperties({ element, dispatch }: PanelProps<TextElement>) {
           suffix="pt"
         />
         <NumberField
-          label="ระยะบรรทัด"
+          label={t('ep.lineHeight')}
           value={element.lineHeight}
           min={0.8}
           max={3}
@@ -105,20 +107,20 @@ function TextProperties({ element, dispatch }: PanelProps<TextElement>) {
         />
       </Row>
       <Row>
-        <ToggleButton active={element.bold} onClick={() => patch({ bold: !element.bold })} title="ตัวหนา">
+        <ToggleButton active={element.bold} onClick={() => patch({ bold: !element.bold })} title={t('ep.bold')}>
           <Icon name="bold" size={14} />
         </ToggleButton>
         <ToggleButton
           active={element.italic}
           onClick={() => patch({ italic: !element.italic })}
-          title="ตัวเอียง"
+          title={t('ep.italic')}
         >
           <Icon name="italic" size={14} />
         </ToggleButton>
         <ToggleButton
           active={element.underline}
           onClick={() => patch({ underline: !element.underline })}
-          title="ขีดเส้นใต้"
+          title={t('ep.underline')}
         >
           <Icon name="underline" size={14} />
         </ToggleButton>
@@ -127,28 +129,36 @@ function TextProperties({ element, dispatch }: PanelProps<TextElement>) {
         value={element.align}
         onChange={(align) => patch({ align })}
         options={[
-          { value: 'left', label: <Icon name="align-left" size={14} />, title: 'ชิดซ้าย' },
-          { value: 'center', label: <Icon name="align-center" size={14} />, title: 'กลาง' },
-          { value: 'right', label: <Icon name="align-right" size={14} />, title: 'ชิดขวา' },
+          { value: 'left', label: <Icon name="align-left" size={14} />, title: t('ep.align.left') },
+          {
+            value: 'center',
+            label: <Icon name="align-center" size={14} />,
+            title: t('ep.align.centre'),
+          },
+          {
+            value: 'right',
+            label: <Icon name="align-right" size={14} />,
+            title: t('ep.align.right'),
+          },
         ]}
       />
       <Row>
         <ColorField
-          label="สีตัวอักษร"
+          label={t('ep.textColour')}
           value={element.color}
           onChange={(color) => patch({ color: color ?? '#111827' })}
         />
       </Row>
       <Row>
         <ColorField
-          label="สีพื้นหลัง"
+          label={t('ep.background')}
           value={element.background}
           allowNone
           onChange={(background) => patch({ background })}
         />
       </Row>
       <NumberField
-        label="ระยะขอบใน"
+        label={t('ep.padding')}
         value={element.padding}
         min={0}
         max={80}
@@ -160,34 +170,36 @@ function TextProperties({ element, dispatch }: PanelProps<TextElement>) {
 }
 
 function ImageProperties({ element, dispatch }: PanelProps<ImageElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="รูปภาพ">
+    <Section title={t('ep.title.image')}>
       <button
         type="button"
         className="btn-secondary btn-sm w-full"
         onClick={() => patch({ h: Math.round(element.w / element.naturalRatio) })}
       >
         <Icon name="grid" size={14} />
-        คืนสัดส่วนเดิม
+        {t('ep.resetRatio')}
       </button>
-      <p className="text-[11px] text-ink-400">กด Shift ระหว่างลากมุมเพื่อคงสัดส่วนภาพ</p>
+      <p className="text-[11px] text-ink-400">{t('ep.imageHint')}</p>
     </Section>
   );
 }
 
 function RectProperties({ element, dispatch }: PanelProps<RectElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="สี่เหลี่ยม">
+    <Section title={t('ep.title.rect')}>
       <Row>
-        <ColorField label="สีพื้น" value={element.fill} allowNone onChange={(fill) => patch({ fill })} />
+        <ColorField label={t('ep.fill')} value={element.fill} allowNone onChange={(fill) => patch({ fill })} />
       </Row>
       <Row>
         <ColorField
-          label="สีเส้นขอบ"
+          label={t('ep.strokeBorder')}
           value={element.stroke}
           allowNone
           onChange={(stroke) => patch({ stroke })}
@@ -195,7 +207,7 @@ function RectProperties({ element, dispatch }: PanelProps<RectElement>) {
       </Row>
       <Row>
         <NumberField
-          label="ความหนาเส้น"
+          label={t('ep.strokeWidth')}
           value={element.strokeWidth}
           min={0}
           max={40}
@@ -203,7 +215,7 @@ function RectProperties({ element, dispatch }: PanelProps<RectElement>) {
           onChange={(strokeWidth) => patch({ strokeWidth })}
         />
         <NumberField
-          label="มุมโค้ง"
+          label={t('ep.corner')}
           value={element.radius}
           min={0}
           max={400}
@@ -215,23 +227,24 @@ function RectProperties({ element, dispatch }: PanelProps<RectElement>) {
 }
 
 function EllipseProperties({ element, dispatch }: PanelProps<EllipseElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="วงกลม / วงรี">
+    <Section title={t('ep.title.ellipse')}>
       <Row>
-        <ColorField label="สีพื้น" value={element.fill} allowNone onChange={(fill) => patch({ fill })} />
+        <ColorField label={t('ep.fill')} value={element.fill} allowNone onChange={(fill) => patch({ fill })} />
       </Row>
       <Row>
         <ColorField
-          label="สีเส้นขอบ"
+          label={t('ep.strokeBorder')}
           value={element.stroke}
           allowNone
           onChange={(stroke) => patch({ stroke })}
         />
       </Row>
       <NumberField
-        label="ความหนาเส้น"
+        label={t('ep.strokeWidth')}
         value={element.strokeWidth}
         min={0}
         max={40}
@@ -243,19 +256,20 @@ function EllipseProperties({ element, dispatch }: PanelProps<EllipseElement>) {
 }
 
 function LineProperties({ element, dispatch }: PanelProps<LineElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="เส้น">
+    <Section title={t('ep.title.line')}>
       <Row>
         <ColorField
-          label="สีเส้น"
+          label={t('ep.stroke')}
           value={element.stroke}
           onChange={(stroke) => patch({ stroke: stroke ?? '#111827' })}
         />
       </Row>
       <NumberField
-        label="ความหนา"
+        label={t('ep.thickness')}
         value={element.strokeWidth}
         min={0.2}
         max={40}
@@ -266,37 +280,38 @@ function LineProperties({ element, dispatch }: PanelProps<LineElement>) {
         <ToggleButton
           active={element.arrowStart}
           onClick={() => patch({ arrowStart: !element.arrowStart })}
-          title="หัวลูกศรต้นทาง"
+          title={t('ep.arrowStart')}
         >
-          <span className="text-[10px]">◀ ต้น</span>
+          <span className="text-[10px]">{t('ep.arrowStartLabel')}</span>
         </ToggleButton>
         <ToggleButton
           active={element.arrowEnd}
           onClick={() => patch({ arrowEnd: !element.arrowEnd })}
-          title="หัวลูกศรปลายทาง"
+          title={t('ep.arrowEnd')}
         >
-          <span className="text-[10px]">ปลาย ▶</span>
+          <span className="text-[10px]">{t('ep.arrowEndLabel')}</span>
         </ToggleButton>
       </Row>
-      <p className="text-[11px] text-ink-400">ลากจุดสีม่วงบนเส้นเพื่อย้ายปลายเส้น</p>
+      <p className="text-[11px] text-ink-400">{t('ep.lineHint')}</p>
     </Section>
   );
 }
 
 function DrawProperties({ element, dispatch }: PanelProps<DrawElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="ลายเซ็น">
+    <Section title={t('ep.title.draw')}>
       <Row>
         <ColorField
-          label="สีเส้น"
+          label={t('ep.stroke')}
           value={element.stroke}
           onChange={(stroke) => patch({ stroke: stroke ?? '#1d4ed8' })}
         />
       </Row>
       <NumberField
-        label="ความหนา"
+        label={t('ep.thickness')}
         value={element.strokeWidth}
         min={0.2}
         max={40}
@@ -304,52 +319,54 @@ function DrawProperties({ element, dispatch }: PanelProps<DrawElement>) {
         onChange={(strokeWidth) => patch({ strokeWidth })}
       />
       <p className="text-[11px] text-ink-400">
-        มี {element.strokes.length} เส้น · ย่อ-ขยายได้โดยไม่เสียความคม
+        {t('ep.drawStrokes', { count: element.strokes.length })}
       </p>
     </Section>
   );
 }
 
 function HighlightProperties({ element, dispatch }: PanelProps<HighlightElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="ไฮไลต์">
+    <Section title={t('ep.title.highlight')}>
       <Row>
         <ColorField
-          label="สีไฮไลต์"
+          label={t('ep.highlightColour')}
           value={element.color}
           onChange={(color) => patch({ color: color ?? '#fde047' })}
         />
       </Row>
-      <p className="text-[11px] text-ink-400">ใช้โหมดผสมสีแบบ multiply จึงไม่ทับข้อความเดิมให้หายไป</p>
+      <p className="text-[11px] text-ink-400">{t('ep.highlightHint')}</p>
     </Section>
   );
 }
 
 function CheckProperties({ element, dispatch }: PanelProps<CheckElement>) {
+  const t = useT();
   const patch = createPatcher(element, dispatch);
 
   return (
-    <Section title="เครื่องหมาย">
+    <Section title={t('ep.title.check')}>
       <ButtonGroup
         value={element.variant}
         onChange={(variant) => patch({ variant })}
         options={[
-          { value: 'check', label: '✓ ถูก' },
-          { value: 'cross', label: '✕ ผิด' },
-          { value: 'dot', label: '● จุด' },
+          { value: 'check', label: t('ep.check.check') },
+          { value: 'cross', label: t('ep.check.cross') },
+          { value: 'dot', label: t('ep.check.dot') },
         ]}
       />
       <Row>
         <ColorField
-          label="สี"
+          label={t('ep.colour')}
           value={element.color}
           onChange={(color) => patch({ color: color ?? '#16a34a' })}
         />
       </Row>
       <NumberField
-        label="ความหนา"
+        label={t('ep.thickness')}
         value={element.strokeWidth}
         min={0.5}
         max={40}

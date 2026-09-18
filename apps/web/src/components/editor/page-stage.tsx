@@ -2,6 +2,7 @@
 
 import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { useT } from '@/lib/i18n/provider';
 import {
   type AnyElement,
   FONT_CSS,
@@ -112,6 +113,7 @@ export function PageStage({
   assetUrl,
   onPlaced,
 }: PageStageProps) {
+  const t = useT();
   const boxRef = useRef<HTMLDivElement | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const [marquee, setMarquee] = useState<Box | null>(null);
@@ -277,7 +279,13 @@ export function PageStage({
       if (tool === 'image' || tool === 'draw') return; // handled by the toolbar
       dispatch({
         type: 'add',
-        element: createElement({ type: tool, page: pageIndex, x: point.x, y: point.y }),
+        element: createElement({
+          type: tool,
+          page: pageIndex,
+          x: point.x,
+          y: point.y,
+          text: t('text.placeholder'),
+        }),
       });
       onPlaced?.();
       return;
@@ -504,7 +512,7 @@ export function PageStage({
                         className="pointer-events-auto absolute left-1/2 flex -translate-x-1/2 items-center justify-center"
                         style={{ top: -26, width: 18, height: 18, cursor: 'grab' }}
                         onPointerDown={(event) => handleRotatePointerDown(event, element)}
-                        title="หมุน (กด Shift เพื่อหมุนทีละ 15°)"
+                        title={t('stage.rotateHint')}
                       >
                         <span className="h-3.5 w-3.5 rounded-full border-2 border-brand-600 bg-white" />
                       </div>
@@ -546,7 +554,7 @@ export function PageStage({
                                 onPointerDown={(event) =>
                                   handleEndpointPointerDown(event, element, which)
                                 }
-                                title="ลากเพื่อย้ายปลายเส้น"
+                                title={t('stage.lineEndpoint')}
                               />
                             );
                           })
@@ -573,7 +581,7 @@ export function PageStage({
 
       {page.hidden ? (
         <div className="absolute inset-0 flex items-center justify-center bg-ink-900/55">
-          <span className="badge bg-white text-ink-700">หน้านี้ถูกซ่อน — จะไม่อยู่ในไฟล์ที่ export</span>
+          <span className="badge bg-white text-ink-700">{t('stage.hiddenPage')}</span>
         </div>
       ) : null}
     </div>

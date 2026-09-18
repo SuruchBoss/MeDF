@@ -221,7 +221,7 @@ export const ElementView = memo(function ElementView({
 
     default: {
       const exhaustive: never = element;
-      throw new Error(`ไม่รู้จักองค์ประกอบ: ${JSON.stringify(exhaustive)}`);
+      throw new Error(`Unknown element: ${JSON.stringify(exhaustive)}`);
     }
   }
 });

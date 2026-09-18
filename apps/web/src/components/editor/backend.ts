@@ -2,6 +2,8 @@
 
 import type { OverlayDoc } from '@/lib/editor-types';
 import { ApiError, apiFetch, uploadWithProgress } from '@/lib/client/fetcher';
+import { createTranslator } from '@/lib/i18n';
+import { detectLocaleInBrowser } from '@/lib/i18n/provider';
 
 /**
  * Everything the editor needs from the outside world.
@@ -72,7 +74,10 @@ export function createServerBackend(documentId: string): EditorBackend {
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         throw new ApiError(
-          payload?.error ?? `Export ไม่สำเร็จ (${response.status})`,
+          payload?.error ??
+        createTranslator(detectLocaleInBrowser())('shell.exportHttpFailed', {
+          status: response.status,
+        }),
           response.status,
         );
       }

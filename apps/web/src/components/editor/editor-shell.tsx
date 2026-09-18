@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
 import { useDialog } from '@/components/ui/dialog';
+import { useT } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/client/fetcher';
 import type { OverlayDoc } from '@/lib/editor-types';
 import type { PlanId } from '@/lib/plans';
@@ -53,6 +54,7 @@ export function EditorShell({
   backHref,
   backLabel,
 }: EditorShellProps) {
+  const t = useT();
   const dialog = useDialog();
   const [state, dispatch] = useReducer(editorReducer, overlay, createInitialState);
   const [title, setTitle] = useState(initialTitle);
@@ -157,7 +159,7 @@ export function EditorShell({
     } catch (error) {
       setNotice({
         tone: 'error',
-        message: error instanceof ApiError ? error.message : 'เพิ่มรูปภาพไม่สำเร็จ',
+        message: error instanceof ApiError ? error.message : t('shell.addImageFailed'),
       });
     }
   }
@@ -184,15 +186,15 @@ export function EditorShell({
         tone: 'info',
         message:
           skipped > 0
-            ? `Export สำเร็จ แต่มีรูปภาพ ${skipped} รูปที่โหลดไม่ได้และถูกข้ามไป`
+            ? t('shell.exportSkipped', { count: skipped })
             : watermark
-              ? 'Export สำเร็จ — ไฟล์นี้มีลายน้ำ MeDF (อัปเกรดเพื่อลบออก)'
-              : 'Export สำเร็จ ไฟล์ถูกดาวน์โหลดแล้ว',
+              ? t('shell.exportWatermarked')
+              : t('shell.exportDone'),
       });
     } catch (error) {
       setNotice({
         tone: 'error',
-        message: error instanceof ApiError ? error.message : 'Export ไม่สำเร็จ',
+        message: error instanceof ApiError ? error.message : t('shell.exportFailed'),
       });
     } finally {
       setExporting(false);
@@ -201,10 +203,10 @@ export function EditorShell({
 
   async function handleRename() {
     const next = await dialog.prompt({
-      title: 'ตั้งชื่อเอกสาร',
-      label: 'ชื่อเอกสาร',
+      title: t('shell.renameTitle'),
+      label: t('shell.renameLabel'),
       defaultValue: title,
-      confirmLabel: 'บันทึกชื่อ',
+      confirmLabel: t('shell.renameSave'),
     });
     if (!next || next.trim() === '' || next === title) return;
     try {
@@ -214,7 +216,7 @@ export function EditorShell({
     } catch (error) {
       setNotice({
         tone: 'error',
-        message: error instanceof ApiError ? error.message : 'เปลี่ยนชื่อไม่สำเร็จ',
+        message: error instanceof ApiError ? error.message : t('shell.renameFailed'),
       });
     }
   }
@@ -268,10 +270,10 @@ export function EditorShell({
           <span className="flex-1">{notice.message}</span>
           {notice.tone === 'error' && plan === 'free' ? (
             <a href="/app/billing" className="font-semibold underline">
-              ดูแพ็กเกจ
+              {t('shell.seePlans')}
             </a>
           ) : null}
-          <button type="button" onClick={() => setNotice(null)} aria-label="ปิด">
+          <button type="button" onClick={() => setNotice(null)} aria-label={t('common.close')}>
             <Icon name="x" size={15} />
           </button>
         </div>
@@ -294,13 +296,13 @@ export function EditorShell({
           {pdf.loading ? (
             <div className="flex h-full items-center justify-center gap-3 text-ink-600">
               <Spinner size={20} />
-              กำลังเปิดไฟล์ PDF…
+              {t('shell.loadingPdf')}
             </div>
           ) : pdf.error ? (
             <div className="mx-auto max-w-md rounded-xl border border-rose-200 bg-white p-6 text-center">
               <p className="font-semibold text-rose-700">{pdf.error}</p>
               <p className="mt-2 text-sm text-ink-500">
-                ลองรีเฟรชหน้านี้ หรือกลับไปอัปโหลดไฟล์ใหม่อีกครั้ง
+                {t('shell.pdfFailedHint')}
               </p>
             </div>
           ) : (
@@ -321,7 +323,10 @@ export function EditorShell({
                   {(visible) => (
                     <>
                       <div className="mb-1.5 text-center text-[11px] font-medium text-ink-500">
-                        หน้า {index + 1} / {state.overlay.pages.length}
+                        {t('shell.pageOf', {
+                          number: index + 1,
+                          total: state.overlay.pages.length,
+                        })}
                       </div>
                       <PageStage
                         page={page}
@@ -431,14 +436,14 @@ async function prepareImage(
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('เบราว์เซอร์นี้ไม่รองรับการแปลงรูปภาพ');
+  if (!context) throw new Error('This browser cannot convert the image');
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/png'),
   );
-  if (!blob) throw new Error('แปลงรูปภาพเป็น PNG ไม่สำเร็จ');
+  if (!blob) throw new Error('Could not convert the image to PNG');
 
   return {
     file: new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.png`, { type: 'image/png' }),

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Promise-returning replacements for `window.confirm` and `window.prompt`.
@@ -47,6 +48,7 @@ type View =
   | ({ kind: 'prompt' } & PromptOptions);
 
 export function useDialog() {
+  const t = useT();
   const [view, setView] = useState<View | null>(null);
   const [value, setValue] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -144,14 +146,14 @@ export function useDialog() {
 
           <div className="flex justify-end gap-2">
             <button type="button" className="btn-secondary btn-sm" onClick={() => settle(false)}>
-              {view.cancelLabel ?? 'ยกเลิก'}
+              {view.cancelLabel ?? t('common.cancel')}
             </button>
             <button
               type="submit"
               className={`btn-sm ${view.kind === 'confirm' && view.tone === 'danger' ? 'btn-danger' : 'btn-primary'}`}
               disabled={view.kind === 'prompt' && value.trim() === ''}
             >
-              {view.confirmLabel ?? 'ตกลง'}
+              {view.confirmLabel ?? t('common.confirm')}
             </button>
           </div>
         </form>

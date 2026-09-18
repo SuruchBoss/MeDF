@@ -27,7 +27,7 @@ export function ErrorScreen({
 }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-ink-50 px-6 py-16 text-center">
-      <Link href="/" aria-label="MeDF หน้าแรก">
+      <Link href="/" aria-label="MeDF">
         <Logo />
       </Link>
 

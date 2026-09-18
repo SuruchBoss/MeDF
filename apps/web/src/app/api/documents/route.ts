@@ -3,6 +3,7 @@ import { ensurePlanFresh } from '@/lib/billing';
 import { createDocument, listDocuments } from '@/lib/documents';
 import { getUsageSummary } from '@/lib/quota';
 import { handleRouteError, jsonError, jsonOk } from '@/lib/api';
+import { translatorForRequest } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,19 +20,20 @@ export async function GET(request: Request) {
 /** Upload a PDF as multipart/form-data with a `file` field. */
 export async function POST(request: Request) {
   try {
+    const t = translatorForRequest(request);
     const user = await ensurePlanFresh(await requireUser());
     const form = await request.formData();
     const file = form.get('file');
 
     if (!(file instanceof File)) {
-      return jsonError('ไม่พบไฟล์ที่อัปโหลด (ต้องส่งฟิลด์ชื่อ "file")', 400);
+      return jsonError(t('api.doc.noFile'), 400);
     }
     const isPdf =
       file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    if (!isPdf) return jsonError('รองรับเฉพาะไฟล์ PDF', 415);
+    if (!isPdf) return jsonError(t('api.doc.onlyPdf'), 415);
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (bytes.byteLength === 0) return jsonError('ไฟล์ว่างเปล่า', 400);
+    if (bytes.byteLength === 0) return jsonError(t('api.doc.emptyFile'), 400);
 
     const title = form.get('title');
     const document = await createDocument({

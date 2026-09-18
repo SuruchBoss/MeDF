@@ -7,6 +7,7 @@ import type { PageState } from '@/lib/editor-types';
 import { PdfPageCanvas } from './pdf-page-canvas';
 import type { EditorAction } from './store';
 import { useInView } from './use-in-view';
+import { useT } from '@/lib/i18n/provider';
 
 /** Left rail: page thumbnails with reorder, rotate and hide controls. */
 
@@ -27,11 +28,15 @@ export function PagesPanel({
   pdf: PDFDocumentProxy | null;
   onJump: (index: number) => void;
 }) {
+  const t = useT();
   return (
     <aside className="hidden w-40 shrink-0 flex-col overflow-y-auto border-r border-ink-200 bg-white lg:flex">
       <div className="sticky top-0 z-10 border-b border-ink-100 bg-white px-3 py-2.5">
         <p className="text-[11px] font-bold tracking-wide text-ink-400 uppercase">
-          หน้า ({pages.filter((page) => !page.hidden).length}/{pages.length})
+          {t('pages.title', {
+            visible: pages.filter((page) => !page.hidden).length,
+            total: pages.length,
+          })}
         </p>
       </div>
 
@@ -73,6 +78,7 @@ function PageThumb({
   pdf: PDFDocumentProxy | null;
   onJump: (index: number) => void;
 }) {
+  const t = useT();
   const ref = useRef<HTMLLIElement | null>(null);
   const visible = useInView(ref, { rootMargin: '400px' });
 
@@ -91,7 +97,7 @@ function PageThumb({
         style={{
           height: (rotated ? THUMB_WIDTH : thumbHeight) + 4,
         }}
-        title={`ไปที่หน้า ${index + 1}`}
+        title={t('pages.goTo', { number: index + 1 })}
       >
         <span
           className="absolute top-1/2 left-1/2 block"
@@ -134,32 +140,32 @@ function PageThumb({
 
       <div className="mt-1 flex justify-center gap-0.5">
         <IconAction
-          title="หมุนซ้าย"
+          title={t('pages.rotateLeft')}
           onClick={() => dispatch({ type: 'pageRotate', index, delta: -90 })}
         >
           <Icon name="rotate" size={13} className="-scale-x-100" />
         </IconAction>
         <IconAction
-          title="หมุนขวา"
+          title={t('pages.rotateRight')}
           onClick={() => dispatch({ type: 'pageRotate', index, delta: 90 })}
         >
           <Icon name="rotate" size={13} />
         </IconAction>
         <IconAction
-          title={page.hidden ? 'แสดงหน้านี้' : 'ซ่อนหน้านี้จากไฟล์ export'}
+          title={page.hidden ? t('pages.show') : t('pages.hide')}
           onClick={() => dispatch({ type: 'pageToggleHidden', index })}
         >
           <Icon name={page.hidden ? 'eye-off' : 'eye'} size={13} />
         </IconAction>
         <IconAction
-          title="เลื่อนขึ้น"
+          title={t('pages.moveUp')}
           disabled={index === 0}
           onClick={() => dispatch({ type: 'pageMove', index, to: index - 1 })}
         >
           <Icon name="chevron-left" size={13} className="rotate-90" />
         </IconAction>
         <IconAction
-          title="เลื่อนลง"
+          title={t('pages.moveDown')}
           disabled={index === total - 1}
           onClick={() => dispatch({ type: 'pageMove', index, to: index + 1 })}
         >

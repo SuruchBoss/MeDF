@@ -15,12 +15,12 @@ const SAFE_KEY = /^[A-Za-z0-9._-]{1,120}$/;
 
 function resolveKey(bucket: StorageBucket, key: string): string {
   if (!SAFE_KEY.test(key) || key.includes('..')) {
-    throw new Error(`ชื่อไฟล์ไม่ถูกต้อง: ${key}`);
+    throw new Error(`Invalid storage key: ${key}`);
   }
   const dir = STORAGE_DIRS[bucket];
   const full = path.join(dir, key);
   if (path.relative(dir, full).startsWith('..')) {
-    throw new Error(`ชื่อไฟล์ไม่ถูกต้อง: ${key}`);
+    throw new Error(`Invalid storage key: ${key}`);
   }
   return full;
 }

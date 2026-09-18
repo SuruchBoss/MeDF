@@ -18,6 +18,7 @@
  * public (members need to know what they are buying), its *code* need not be.
  */
 
+import type { MessageKey } from './i18n';
 import { type PlanId, type PlanLimits, PLANS, PLAN_ORDER } from './plans';
 
 /**
@@ -36,8 +37,9 @@ export type FeatureSource = 'core' | 'private';
 
 export interface FeatureDefinition {
   key: string;
-  label: string;
-  description: string;
+  /** Message keys: a member reads these, so they follow their language. */
+  label: MessageKey;
+  description: MessageKey;
   plan: PlanId;
   source: FeatureSource;
 }
@@ -46,22 +48,22 @@ export const FEATURES: Record<string, FeatureDefinition> = {
   // --- Core: open source, available to everyone ---------------------------
   'editor.elements': {
     key: 'editor.elements',
-    label: 'เครื่องมือแก้ไขทั้งหมด',
-    description: 'ข้อความ รูปภาพ รูปทรง เส้น ลายเซ็น ไฮไลต์ และเครื่องหมาย',
+    label: 'feature.editorElements.label',
+    description: 'feature.editorElements.description',
     plan: 'free',
     source: 'core',
   },
   'editor.pages': {
     key: 'editor.pages',
-    label: 'จัดการหน้าเอกสาร',
-    description: 'สลับลำดับ หมุน และซ่อนหน้าก่อน export',
+    label: 'feature.editorPages.label',
+    description: 'feature.editorPages.description',
     plan: 'free',
     source: 'core',
   },
   'export.pdf': {
     key: 'export.pdf',
-    label: 'Export กลับเป็น PDF',
-    description: 'รวม overlay กับหน้าต้นฉบับโดยคงคุณภาพเวกเตอร์',
+    label: 'feature.exportPdf.label',
+    description: 'feature.exportPdf.description',
     plan: 'free',
     source: 'core',
   },
@@ -69,22 +71,22 @@ export const FEATURES: Record<string, FeatureDefinition> = {
   // --- Core: open source, but gated by plan ------------------------------
   'export.noWatermark': {
     key: 'export.noWatermark',
-    label: 'Export โดยไม่มีลายน้ำ',
-    description: 'ไฟล์ที่ได้ไม่มีข้อความประชาสัมพันธ์ MeDF',
+    label: 'feature.noWatermark.label',
+    description: 'feature.noWatermark.description',
     plan: lowestPlanWhere((limits) => !limits.watermark),
     source: 'core',
   },
   'export.unlimited': {
     key: 'export.unlimited',
-    label: 'Export ไม่จำกัดจำนวนครั้ง',
-    description: 'ไม่มีโควตารายเดือน',
+    label: 'feature.unlimited.label',
+    description: 'feature.unlimited.description',
     plan: lowestPlanWhere((limits) => !Number.isFinite(limits.exportsPerMonth)),
     source: 'core',
   },
   'export.highQualityImages': {
     key: 'export.highQualityImages',
-    label: 'รูปภาพคุณภาพสูง',
-    description: 'ฝังรูปภาพโดยไม่บีบอัดเพิ่ม และฝังฟอนต์ไทยแบบเต็ม',
+    label: 'feature.hqImages.label',
+    description: 'feature.hqImages.description',
     plan: lowestPlanWhere((limits) => limits.highQualityImages),
     source: 'core',
   },
@@ -95,29 +97,29 @@ export const FEATURES: Record<string, FeatureDefinition> = {
   // nothing in this repository reveals how they work.
   'pro.ocr': {
     key: 'pro.ocr',
-    label: 'ทำให้ PDF ค้นหาข้อความได้ (OCR)',
-    description: 'อ่านข้อความจากเอกสารสแกนแล้วฝังชั้นข้อความที่ค้นหาได้',
+    label: 'feature.ocr.label',
+    description: 'feature.ocr.description',
     plan: 'pro',
     source: 'private',
   },
   'pro.redact': {
     key: 'pro.redact',
-    label: 'ลบข้อมูลถาวร (redaction)',
-    description: 'ลบข้อความและรูปภาพออกจากไฟล์จริง ไม่ใช่เพียงวางทับ',
+    label: 'feature.redact.label',
+    description: 'feature.redact.description',
     plan: 'pro',
     source: 'private',
   },
   'pro.templates': {
     key: 'pro.templates',
-    label: 'เทมเพลตขององค์กร',
-    description: 'บันทึกชุดองค์ประกอบไว้ใช้ซ้ำทั้งทีม',
+    label: 'feature.templates.label',
+    description: 'feature.templates.description',
     plan: 'team',
     source: 'private',
   },
   'pro.batch': {
     key: 'pro.batch',
-    label: 'ประมวลผลหลายไฟล์พร้อมกัน',
-    description: 'ใช้ชุดการแก้ไขเดียวกันกับเอกสารหลายไฟล์ในครั้งเดียว',
+    label: 'feature.batch.label',
+    description: 'feature.batch.description',
     plan: 'team',
     source: 'private',
   },
@@ -146,8 +148,8 @@ export function planAllows(plan: PlanId, key: FeatureKey): boolean {
 /** Shape returned to the browser so the UI can show or hide entry points. */
 export interface FeatureAvailability {
   key: string;
-  label: string;
-  description: string;
+  label: MessageKey;
+  description: MessageKey;
   plan: PlanId;
   source: FeatureSource;
   /** Entitled by plan *and* actually installed on this server. */

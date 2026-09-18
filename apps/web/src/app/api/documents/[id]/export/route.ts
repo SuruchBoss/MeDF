@@ -15,6 +15,7 @@ import { nodeFontLoader } from '@/lib/pdf/fonts-node';
 import { renderOverlayToPdf } from '@/lib/pdf/render';
 import { applyProExportTransform } from '@/lib/pro';
 import { handleRouteError, parseJson } from '@/lib/api';
+import { translatorForRequest } from '@/lib/i18n/server';
 
 /**
  * Exports the edited document.
@@ -59,6 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       loadAsset: assetLoaderFor(user.id),
       fontLoader: nodeFontLoader,
       watermark: plan.limits.watermark,
+      watermarkText: translatorForRequest(request)('export.watermark'),
       title: document.title,
       author: user.name,
     });

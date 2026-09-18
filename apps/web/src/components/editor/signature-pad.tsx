@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { Icon } from '@/components/icons';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Freehand signature capture. Strokes are returned as fractions of the drawing
@@ -25,6 +26,7 @@ export function SignaturePad({
     ratio: number;
   }) => void;
 }) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const strokesRef = useRef<[number, number][][]>([]);
   const drawingRef = useRef(false);
@@ -79,12 +81,12 @@ export function SignaturePad({
       <div className="card w-full max-w-xl p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-ink-900">วาดลายเซ็น</h2>
+            <h2 className="text-lg font-bold text-ink-900">{t('signature.title')}</h2>
             <p className="mt-1 text-sm text-ink-500">
-              ใช้เมาส์ ปากกา หรือนิ้วลากในกรอบด้านล่าง ลายเซ็นจะถูกวางเป็นเส้นเวกเตอร์
+              {t('signature.hint')}
             </p>
           </div>
-          <button type="button" onClick={onCancel} className="btn-ghost btn-sm" aria-label="ปิด">
+          <button type="button" onClick={onCancel} className="btn-ghost btn-sm" aria-label={t('common.close')}>
             <Icon name="x" size={18} />
           </button>
         </div>
@@ -128,7 +130,7 @@ export function SignaturePad({
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-ink-600">
-            สี
+            {t('signature.colour')}
             <input
               type="color"
               value={color}
@@ -140,7 +142,7 @@ export function SignaturePad({
             />
           </label>
           <label className="flex items-center gap-2 text-sm text-ink-600">
-            ความหนา
+            {t('signature.thickness')}
             <input
               type="range"
               min={0.8}
@@ -163,13 +165,13 @@ export function SignaturePad({
             }}
           >
             <Icon name="trash" size={15} />
-            ล้าง
+            {t('signature.clear')}
           </button>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onCancel}>
-            ยกเลิก
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -185,7 +187,7 @@ export function SignaturePad({
             }
           >
             <Icon name="check" size={16} />
-            วางลายเซ็นลงเอกสาร
+            {t('signature.place')}
           </button>
         </div>
       </div>

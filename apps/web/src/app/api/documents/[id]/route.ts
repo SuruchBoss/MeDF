@@ -11,6 +11,7 @@ import {
 } from '@/lib/documents';
 import { overlaySchema } from '@/lib/editor-types';
 import { handleRouteError, jsonError, jsonOk, parseJson } from '@/lib/api';
+import { translatorForRequest } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,7 @@ const patchSchema = z.object({
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const t = translatorForRequest(request);
     const user = await ensurePlanFresh(await requireUser());
     const { id } = await params;
     let document = await getDocument(user.id, id);
@@ -51,7 +53,7 @@ export async function PATCH(request: Request, { params }: Params) {
         input.baseRevision !== 0
       ) {
         return jsonError(
-          'เอกสารนี้ถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณารีเฟรชหน้าก่อนบันทึก',
+          t('api.doc.revisionConflict'),
           409,
           { code: 'revision_conflict', revision: document.revision },
         );

@@ -6,21 +6,24 @@ import { useState } from 'react';
 import { Icon, Logo, Spinner } from '@/components/icons';
 import type { PublicUser } from '@/lib/auth';
 import { PLANS } from '@/lib/plans';
+import type { MessageKey } from '@/lib/i18n';
+import { useT } from '@/lib/i18n/provider';
 
 const NAV = [
-  { href: '/app', label: 'เอกสารของฉัน', icon: 'file-text' as const },
-  { href: '/app/billing', label: 'การสมัครสมาชิก', icon: 'credit-card' as const },
-  { href: '/app/account', label: 'บัญชีของฉัน', icon: 'user' as const },
+  { href: '/app', label: 'appnav.documents' as MessageKey, icon: 'file-text' as const },
+  { href: '/app/billing', label: 'appnav.billing' as MessageKey, icon: 'credit-card' as const },
+  { href: '/app/account', label: 'appnav.account' as MessageKey, icon: 'user' as const },
 ];
 
 export function AppNav({ user }: { user: PublicUser }) {
+  const t = useT();
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const plan = PLANS[user.plan];
 
   const links = user.role === 'admin'
-    ? [...NAV, { href: '/app/admin', label: 'ผู้ดูแลระบบ', icon: 'settings' as const }]
+    ? [...NAV, { href: '/app/admin', label: 'appnav.admin' as MessageKey, icon: 'settings' as const }]
     : NAV;
 
   async function signOut() {
@@ -51,7 +54,7 @@ export function AppNav({ user }: { user: PublicUser }) {
                 }`}
               >
                 <Icon name={item.icon} size={16} />
-                {item.label}
+                {t(item.label)}
               </Link>
             );
           })}
@@ -64,10 +67,10 @@ export function AppNav({ user }: { user: PublicUser }) {
               ? 'bg-ink-100 text-ink-600 hover:bg-ink-200'
               : 'bg-brand-600 text-white hover:bg-brand-700'
           }`}
-          title="ดูรายละเอียดแพ็กเกจ"
+          title={t('appnav.planHint')}
         >
           {user.plan !== 'free' ? <Icon name="star" size={12} /> : null}
-          แพ็กเกจ {plan.name}
+          {t('appnav.planBadge', { plan: plan.name })}
         </Link>
 
         <div className="flex items-center gap-2">
@@ -77,10 +80,10 @@ export function AppNav({ user }: { user: PublicUser }) {
             onClick={signOut}
             className="btn-ghost btn-sm"
             disabled={busy}
-            title="ออกจากระบบ"
+            title={t('appnav.signOut')}
           >
             {busy ? <Spinner size={15} /> : <Icon name="logout" size={16} />}
-            <span className="hidden sm:inline">ออกจากระบบ</span>
+            <span className="hidden sm:inline">{t('appnav.signOut')}</span>
           </button>
         </div>
       </div>

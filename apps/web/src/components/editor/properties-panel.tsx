@@ -3,6 +3,8 @@
 import type { Dispatch } from 'react';
 import { Icon } from '@/components/icons';
 import { type AnyElement, type PageState, elementLabel } from '@/lib/editor-types';
+import type { MessageKey } from '@/lib/i18n';
+import { useT } from '@/lib/i18n/provider';
 import { NumberField, Row, Section, SliderField, ToggleButton } from './controls';
 import { ElementProperties } from './element-properties';
 import type { BaseElementPatch, EditorAction } from './store';
@@ -27,6 +29,7 @@ export function PropertiesPanel({
   pageIndex,
   dispatch,
 }: PropertiesPanelProps) {
+  const t = useT();
   const single = selection.length === 1 ? selection[0] : null;
   const ids = selection.map((element) => element.id);
 
@@ -52,30 +55,44 @@ export function PropertiesPanel({
   return (
     <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-ink-200 bg-white">
       {selection.length === 0 ? (
-        <Section title="หน้าเอกสาร">
+        <Section title={t('props.pageTitle')}>
           <p className="text-sm text-ink-600">
-            หน้า {pageIndex + 1}
-            {page ? ` · ${Math.round(page.width)} × ${Math.round(page.height)} pt` : ''}
+            {page
+              ? t('props.pageSize', {
+                  number: pageIndex + 1,
+                  width: Math.round(page.width),
+                  height: Math.round(page.height),
+                })
+              : t('props.pageNumber', { number: pageIndex + 1 })}
           </p>
-          <p className="text-xs leading-relaxed text-ink-500">
-            เลือกเครื่องมือจากแถบด้านบน แล้วคลิกบนหน้าเอกสารเพื่อวางองค์ประกอบ
-            หรือคลิกองค์ประกอบที่มีอยู่เพื่อแก้ไขคุณสมบัติ
-          </p>
+          <p className="text-xs leading-relaxed text-ink-500">{t('props.placeHint')}</p>
           <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-500">
-            <p className="font-semibold text-ink-700">คีย์ลัดที่ใช้บ่อย</p>
+            <p className="font-semibold text-ink-700">{t('props.shortcutsTitle')}</p>
             <ul className="mt-1.5 space-y-1">
-              <li>Ctrl+Z / Ctrl+Shift+Z — ย้อนกลับ / ทำซ้ำ</li>
-              <li>Ctrl+D — ทำสำเนาองค์ประกอบ</li>
-              <li>Ctrl+S — บันทึก</li>
-              <li>ลูกศร — เลื่อน 1 pt (Shift = 10 pt)</li>
-              <li>Delete — ลบองค์ประกอบที่เลือก</li>
-              <li>Alt ระหว่างลาก — ปิดการ snap</li>
+              {(
+                [
+                  'props.shortcut.undo',
+                  'props.shortcut.duplicate',
+                  'props.shortcut.save',
+                  'props.shortcut.arrows',
+                  'props.shortcut.delete',
+                  'props.shortcut.alt',
+                ] as MessageKey[]
+              ).map((key) => (
+                <li key={key}>{t(key)}</li>
+              ))}
             </ul>
           </div>
         </Section>
       ) : (
         <>
-          <Section title={single ? elementLabel(single) : `เลือกอยู่ ${selection.length} ชิ้น`}>
+          <Section
+            title={
+              single
+                ? elementLabel(single, t)
+                : t('props.selectedCount', { count: selection.length })
+            }
+          >
             <Row>
               <NumberField
                 label="X"
@@ -92,14 +109,14 @@ export function PropertiesPanel({
             </Row>
             <Row>
               <NumberField
-                label="กว้าง"
+                label={t('props.width')}
                 value={selection[0].w}
                 onChange={(value) => patch({ w: Math.max(6, value) })}
                 min={6}
                 suffix="pt"
               />
               <NumberField
-                label="สูง"
+                label={t('props.height')}
                 value={selection[0].h}
                 onChange={(value) => patch({ h: Math.max(6, value) })}
                 min={6}
@@ -108,7 +125,7 @@ export function PropertiesPanel({
             </Row>
             <Row>
               <NumberField
-                label="หมุน"
+                label={t('props.rotation')}
                 value={selection[0].rotation}
                 onChange={(value) => patch({ rotation: value })}
                 min={-360}
@@ -116,7 +133,7 @@ export function PropertiesPanel({
                 suffix="°"
               />
               <div className="flex-1">
-                <span className="mb-1 block text-[11px] text-ink-500">ล็อกตำแหน่ง</span>
+                <span className="mb-1 block text-[11px] text-ink-500">{t('props.lock')}</span>
                 <ToggleButton
                   active={selection.every((element) => element.locked)}
                   onClick={() =>
@@ -126,7 +143,7 @@ export function PropertiesPanel({
                       patch: { locked: !selection.every((element) => element.locked) },
                     })
                   }
-                  title="ล็อกเพื่อกันการลากโดยไม่ตั้งใจ"
+                  title={t('props.lockHint')}
                 >
                   <Icon
                     name={selection.every((element) => element.locked) ? 'lock' : 'unlock'}
@@ -136,7 +153,7 @@ export function PropertiesPanel({
               </div>
             </Row>
             <SliderField
-              label="ความโปร่งใส"
+              label={t('props.opacity')}
               value={selection[0].opacity}
               min={0.05}
               max={1}
@@ -145,20 +162,20 @@ export function PropertiesPanel({
             />
           </Section>
 
-          <Section title="จัดตำแหน่งในหน้า">
+          <Section title={t('props.alignTitle')}>
             <Row>
               {(
                 [
-                  ['left', 'align-left', 'ชิดซ้าย'],
-                  ['centre', 'align-center', 'กลางแนวนอน'],
-                  ['right', 'align-right', 'ชิดขวา'],
+                  ['left', 'align-left', 'props.alignLeft'],
+                  ['centre', 'align-center', 'props.alignCentreH'],
+                  ['right', 'align-right', 'props.alignRight'],
                 ] as const
               ).map(([mode, icon, title]) => (
                 <ToggleButton
                   key={mode}
                   active={false}
                   onClick={() => alignToPage(mode)}
-                  title={title}
+                  title={t(title)}
                 >
                   <Icon name={icon} size={14} />
                 </ToggleButton>
@@ -167,18 +184,18 @@ export function PropertiesPanel({
             <Row>
               {(
                 [
-                  ['top', 'ชิดบน'],
-                  ['middle', 'กลางแนวตั้ง'],
-                  ['bottom', 'ชิดล่าง'],
+                  ['top', 'props.alignTop'],
+                  ['middle', 'props.alignCentreV'],
+                  ['bottom', 'props.alignBottom'],
                 ] as const
               ).map(([mode, title]) => (
                 <ToggleButton
                   key={mode}
                   active={false}
                   onClick={() => alignToPage(mode)}
-                  title={title}
+                  title={t(title)}
                 >
-                  <span className="text-[10px]">{title}</span>
+                  <span className="text-[10px]">{t(title)}</span>
                 </ToggleButton>
               ))}
             </Row>
@@ -186,14 +203,14 @@ export function PropertiesPanel({
 
           {single ? <ElementProperties element={single} dispatch={dispatch} /> : null}
 
-          <Section title="ลำดับชั้น">
+          <Section title={t('props.zTitle')}>
             <Row>
               {(
                 [
-                  ['front', 'บนสุด'],
-                  ['forward', 'ขึ้นหนึ่งชั้น'],
-                  ['backward', 'ลงหนึ่งชั้น'],
-                  ['back', 'ล่างสุด'],
+                  ['front', 'props.zFront'],
+                  ['forward', 'props.zForward'],
+                  ['backward', 'props.zBackward'],
+                  ['back', 'props.zBack'],
                 ] as const
               ).map(([to, title]) => (
                 <ToggleButton
@@ -204,9 +221,9 @@ export function PropertiesPanel({
                       dispatch({ type: 'reorder', id: element.id, to });
                     }
                   }}
-                  title={title}
+                  title={t(title)}
                 >
-                  <span className="text-[10px]">{title}</span>
+                  <span className="text-[10px]">{t(title)}</span>
                 </ToggleButton>
               ))}
             </Row>
@@ -217,7 +234,7 @@ export function PropertiesPanel({
                 onClick={() => dispatch({ type: 'duplicate' })}
               >
                 <Icon name="copy" size={14} />
-                ทำสำเนา
+                {t('common.duplicate')}
               </button>
               <button
                 type="button"
@@ -225,16 +242,16 @@ export function PropertiesPanel({
                 onClick={() => dispatch({ type: 'delete' })}
               >
                 <Icon name="trash" size={14} />
-                ลบ
+                {t('common.delete')}
               </button>
             </Row>
           </Section>
         </>
       )}
 
-      <Section title={`องค์ประกอบในหน้านี้ (${pageElements.length})`}>
+      <Section title={t('props.elementsOnPage', { count: pageElements.length })}>
         {pageElements.length === 0 ? (
-          <p className="text-xs text-ink-400">ยังไม่มีองค์ประกอบในหน้านี้</p>
+          <p className="text-xs text-ink-400">{t('props.noElements')}</p>
         ) : (
           <ul className="space-y-1">
             {[...pageElements].reverse().map((element) => (
@@ -249,7 +266,7 @@ export function PropertiesPanel({
                   }`}
                 >
                   <Icon name={iconForElement(element)} size={14} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{elementLabel(element)}</span>
+                  <span className="min-w-0 flex-1 truncate">{elementLabel(element, t)}</span>
                   {element.locked ? <Icon name="lock" size={12} className="text-amber-500" /> : null}
                 </button>
               </li>

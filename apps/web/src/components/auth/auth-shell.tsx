@@ -1,10 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import { Icon, Logo } from '@/components/icons';
+import type { MessageKey } from '@/lib/i18n';
+import { useT } from '@/lib/i18n/provider';
 
-const POINTS = [
-  'ลากวางข้อความ รูปภาพ และลายเซ็นลงใน PDF ได้อิสระ',
-  'Export กลับเป็น PDF โดยคงคุณภาพต้นฉบับ',
-  'ใช้งานฟรี ไม่ต้องกรอกบัตรเครดิต',
+const POINTS: MessageKey[] = [
+  'authshell.point.dragDrop',
+  'authshell.point.export',
+  'authshell.point.free',
 ];
 
 /** Split layout shared by the sign-in and sign-up screens. */
@@ -17,6 +21,8 @@ export function AuthShell({
   subtitle: string;
   children: React.ReactNode;
 }) {
+  const t = useT();
+
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col justify-center px-6 py-12 sm:px-12">
@@ -38,15 +44,15 @@ export function AuthShell({
         <div className="relative px-14">
           <p className="text-sm font-semibold tracking-wide text-brand-300 uppercase">MeDF</p>
           <h2 className="mt-4 text-3xl leading-tight font-extrabold text-white">
-            แก้ไข PDF ด้วยการลากวาง
+            {t('authshell.line1')}
             <br />
-            แล้ว Export กลับได้ทันที
+            {t('authshell.line2')}
           </h2>
           <ul className="mt-8 space-y-4">
             {POINTS.map((point) => (
               <li key={point} className="flex gap-3 text-ink-200">
                 <Icon name="check-circle" size={20} className="mt-0.5 shrink-0 text-brand-300" />
-                <span className="text-sm leading-relaxed">{point}</span>
+                <span className="text-sm leading-relaxed">{t(point)}</span>
               </li>
             ))}
           </ul>

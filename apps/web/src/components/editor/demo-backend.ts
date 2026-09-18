@@ -3,6 +3,8 @@
 import type { OverlayDoc } from '@/lib/editor-types';
 import { withBasePath } from '@/lib/base-path';
 import { PLANS } from '@/lib/plans';
+import { createTranslator } from '@/lib/i18n';
+import { detectLocaleInBrowser } from '@/lib/i18n/provider';
 import { createBrowserFontLoader } from '@/lib/pdf/fonts-browser';
 import { renderOverlayToPdf } from '@/lib/pdf/render';
 import type { EditorBackend } from './backend';
@@ -23,8 +25,7 @@ import type { EditorBackend } from './backend';
 export class DemoBackend implements EditorBackend {
   readonly kind = 'demo' as const;
   readonly pdfUrl: string;
-  readonly notice =
-    'โหมดทดลอง: ไฟล์ของคุณอยู่ในเบราว์เซอร์เท่านั้น ไม่ถูกอัปโหลดไปที่ใด · รีเฟรชหน้าแล้วต้องเริ่มใหม่';
+  readonly notice = createTranslator(detectLocaleInBrowser())('demo.notice');
 
   private revision = 1;
   private title: string;
@@ -73,6 +74,7 @@ export class DemoBackend implements EditorBackend {
       },
       // The demo is the Free plan, footer included.
       watermark: PLANS.free.limits.watermark,
+      watermarkText: createTranslator(detectLocaleInBrowser())('export.watermark'),
       title,
     });
 

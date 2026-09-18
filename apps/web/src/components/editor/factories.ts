@@ -15,6 +15,12 @@ interface CreateOptions {
   /** Insertion point in base page space; the element is centred on it. */
   x: number;
   y: number;
+  /**
+   * Starting text for a text box. Supplied by the caller rather than fixed
+   * here, because this module has no translator and the placeholder is the
+   * first thing a member reads.
+   */
+  text?: string;
 }
 
 const DEFAULT_SIZE: Record<ElementType, { w: number; h: number }> = {
@@ -52,7 +58,7 @@ export function createElement(options: CreateOptions): AnyElement {
       return {
         ...common,
         type: 'text',
-        text: 'พิมพ์ข้อความที่นี่',
+        text: options.text ?? '',
         fontFamily: 'sarabun',
         fontSize: 16,
         bold: false,
@@ -98,7 +104,7 @@ export function createElement(options: CreateOptions): AnyElement {
       return { ...common, type: 'check', variant: 'check', color: '#16a34a', strokeWidth: 3 };
     default: {
       const exhaustive: never = type;
-      throw new Error(`ไม่รู้จักชนิดองค์ประกอบ: ${String(exhaustive)}`);
+      throw new Error(`Unknown element type: ${String(exhaustive)}`);
     }
   }
 }

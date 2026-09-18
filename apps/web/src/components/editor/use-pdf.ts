@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import { withBasePath } from '@/lib/base-path';
+import { createTranslator } from '@/lib/i18n';
+import { detectLocaleInBrowser } from '@/lib/i18n/provider';
 
 /**
  * Loads pdf.js lazily (it is a large, browser-only bundle) and opens a
@@ -61,8 +63,10 @@ export function usePdfDocument(url: string): PdfState {
           loading: false,
           error:
             error instanceof Error
-              ? `เปิดไฟล์ PDF ไม่สำเร็จ: ${error.message}`
-              : 'เปิดไฟล์ PDF ไม่สำเร็จ',
+              ? createTranslator(detectLocaleInBrowser())('pdf.openFailed', {
+                  reason: error.message,
+                })
+              : createTranslator(detectLocaleInBrowser())('pdf.openFailedShort'),
         });
       }
     })();

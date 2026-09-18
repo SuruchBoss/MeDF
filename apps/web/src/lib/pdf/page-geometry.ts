@@ -1,5 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
 import type { PageState } from '../editor-types';
+import type { MessageKey, MessageParams } from '../i18n';
 import { displaySize, normalizeRotation } from './matrix';
 
 /**
@@ -9,10 +10,22 @@ import { displaySize, normalizeRotation } from './matrix';
  * uses it on the client, so both agree on what a page's size is.
  */
 
+/**
+ * Carries a message key, not a sentence.
+ *
+ * This module runs on the server *and* in the browser-only demo, so it has no
+ * translator of its own — whichever side catches this renders the key with the
+ * locale it already knows.
+ */
 export class PdfGeometryError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly key: MessageKey;
+  readonly params?: MessageParams;
+
+  constructor(key: MessageKey, params?: MessageParams) {
+    super(key);
     this.name = 'PdfGeometryError';
+    this.key = key;
+    this.params = params;
   }
 }
 
@@ -21,17 +34,15 @@ export async function readPageGeometry(bytes: Uint8Array): Promise<PageState[]> 
   try {
     pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   } catch (error) {
-    throw new PdfGeometryError(
-      `ไม่สามารถอ่านไฟล์ PDF นี้ได้ (${(error as Error).message}) หากไฟล์ตั้งรหัสผ่านไว้ กรุณาปลดรหัสก่อน`,
-    );
+    throw new PdfGeometryError('pdf.unreadable', { reason: (error as Error).message });
   }
 
   if (pdf.isEncrypted) {
-    throw new PdfGeometryError('ไฟล์ PDF นี้ถูกเข้ารหัสไว้ กรุณาปลดรหัสผ่านก่อน');
+    throw new PdfGeometryError('pdf.encrypted');
   }
 
   const pages = pdf.getPages();
-  if (pages.length === 0) throw new PdfGeometryError('ไฟล์ PDF ไม่มีหน้าเลย');
+  if (pages.length === 0) throw new PdfGeometryError('pdf.noPages');
 
   return pages.map((page, index) => {
     const box = (() => {
