@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { FontFaces } from '@/components/font-faces';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -28,6 +29,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th">
+      <head>
+        <FontFaces />
+      </head>
       <body className="min-h-full font-sans antialiased">{children}</body>
     </html>
   );

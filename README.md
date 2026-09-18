@@ -7,6 +7,10 @@
 เว็บแอปแก้ไข PDF แบบลากวาง พร้อมระบบสมาชิกและการสมัครสมาชิก
 และมีตัวติดตั้งสำหรับ Windows ที่ทำงานได้แบบออฟไลน์
 
+### 👉 [ลองใช้ทันที ไม่ต้องสมัคร](https://suruchboss.github.io/MeDF/try/)
+
+เปิดในเบราว์เซอร์ได้เลย · ไฟล์ของคุณไม่ถูกอัปโหลดไปที่ใด · ใช้ได้เท่าแพ็กเกจ Free
+
 </div>
 
 ---
@@ -90,6 +94,20 @@ pre-commit hook (`npm run setup:hooks`) และขั้นตอนแรก�
 
 ---
 
+## ลองเล่นก่อน
+
+มีสามทางเลือก เรียงจากง่ายไปยาก
+
+| วิธี | ต้องทำอะไร | ได้อะไร |
+| --- | --- | --- |
+| **เดโมบนเว็บ** — [suruchboss.github.io/MeDF](https://suruchboss.github.io/MeDF/) | ไม่ต้องติดตั้งอะไร | หน้า Landing + หน้าแก้ไขที่ใช้งานได้จริงเท่าแพ็กเกจ Free (ทำงานในเบราว์เซอร์ล้วน ไม่มีการอัปโหลด และไม่บันทึกงานไว้) |
+| **รันบนเครื่องตัวเอง** | `npm install && npm run build && npm run start` | ตัวเต็ม: สมัครสมาชิก เก็บเอกสาร โควตา แพ็กเกจ และหน้าผู้ดูแลระบบ |
+| **ติดตั้งบน Windows** | `npm run dist:win` (หรือดาวน์โหลดจาก Releases) | ตัวเต็มแบบออฟไลน์ ข้อมูลอยู่ในเครื่อง |
+
+หน้าแก้ไขแบบไม่ต้องสมัครมีอยู่ในตัวเต็มด้วยที่ `/try` จึงชวนคนลองก่อนสมัครได้
+
+---
+
 ## เริ่มใช้งาน
 
 ```bash
@@ -123,6 +141,16 @@ npm run dist:win:portable     # ได้เวอร์ชัน portable ท�
 ดูรายละเอียดทั้งหมด (รวมถึงการสร้างตัวติดตั้งจากเครื่อง Linux/macOS และผ่าน GitHub Actions)
 ได้ที่ [`docs/WINDOWS.md`](docs/WINDOWS.md)
 
+### เผยแพร่เว็บเดโมบน GitHub Pages
+
+```bash
+npm run demo:build    # ได้ไฟล์สถิตที่ apps/demo/out
+npm run test:static   # ทดสอบแบบที่ Pages จะเสิร์ฟจริง
+```
+
+เปิดใช้ครั้งแรกต้องตั้ง **Settings → Pages → Source = GitHub Actions** หนึ่งครั้ง
+รายละเอียดอยู่ใน [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md)
+
 ---
 
 ## คำสั่งที่ใช้บ่อย
@@ -135,6 +163,8 @@ npm run dist:win:portable     # ได้เวอร์ชัน portable ท�
 | `npm test` | เทสต์ API และเทสต์ผ่านเบราว์เซอร์ทั้งชุด |
 | `npm run test:api` | เทสต์ API แบบ end-to-end (สมัครสมาชิก อัปโหลด แก้ไข export โควตา สิทธิ์) |
 | `npm run test:ui` | เทสต์หน้าแก้ไขจริงด้วย Playwright (ลากวาง ย่อขยาย ลายเซ็น export) |
+| `npm run test:demo` | เทสต์หน้า `/try` ว่าแก้ไขและ export ได้โดยไม่เรียก API เลย |
+| `npm run demo:build` / `npm run test:static` | สร้างเว็บสถิตสำหรับ GitHub Pages แล้วทดสอบแบบที่ Pages จะเสิร์ฟ |
 | `npm run test:standalone` | ตรวจว่าบันเดิล standalone รันได้และเสิร์ฟ asset ครบ |
 | `npm run test:desktop` | เปิดเชลล์ Electron แบบไม่มีจอ แล้วตรวจว่าโหลดแอปได้ |
 | `npm run desktop:dev` | เปิดแอปเดสก์ท็อปโดยต่อกับเซิร์ฟเวอร์ dev |
@@ -157,6 +187,7 @@ npm run dist:win:portable     # ได้เวอร์ชัน portable ท�
 | `MEDF_BILLING_SANDBOX` | `1` เพื่อเปิดโหมดทดลองระบบชำระเงิน (เปิดอัตโนมัติเมื่อไม่ได้ตั้งค่า Stripe) |
 | `MEDF_ADMIN_EMAIL` | อีเมลที่จะได้สิทธิ์ admin เมื่อสมัคร |
 | `MEDF_PRO_MODULE` | path ของโมดูลฟีเจอร์เสริม (ถ้าไม่ตั้ง จะทำงานเป็นบิลด์โอเพนซอร์สล้วน) |
+| `NEXT_PUBLIC_BASE_PATH` | คำนำหน้า URL เมื่อโฮสต์ใต้ subpath (เว็บสถิตบน Pages ใช้ `/MeDF`) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*` | เปิดการชำระเงินจริงผ่าน Stripe |
 
 ---
@@ -165,6 +196,8 @@ npm run dist:win:portable     # ได้เวอร์ชัน portable ท�
 
 ```
 MeDF/
+├── apps/demo/                    # เว็บสถิตสำหรับ GitHub Pages (Landing + /try)
+│                                 #   ใช้คอมโพเนนต์ชุดเดียวกับ apps/web
 ├── apps/web/                     # เว็บแอป Next.js (App Router)
 │   ├── src/app/                  # หน้าเว็บและ API routes
 │   │   ├── page.tsx              #   landing page
@@ -174,6 +207,8 @@ MeDF/
 │   │   │   └── editor/[id]/      #   หน้าแก้ไขเอกสาร
 │   │   └── api/                  #   auth, documents, assets, billing, health
 │   ├── src/components/editor/    # หน้าแก้ไข: state, การลากวาง, แผงคุณสมบัติ
+│   │   └── backend.ts            #   ตัวเชื่อม: ใช้ API หรือทำงานในเบราว์เซอร์ล้วน
+│   ├── src/components/demo/      # หน้า “ลองใช้ทันที” (ไม่ต้องสมัคร)
 │   ├── src/lib/                  # ชั้นข้อมูล สิทธิ์ โควตา แพ็กเกจ
 │   │   ├── features.ts           #   ทะเบียนฟีเจอร์: อะไรฟรี อะไรต้องจ่าย
 │   │   ├── pro.ts                #   ตัวโหลดโมดูลฟีเจอร์เสริม + ประตูตรวจสิทธิ์
@@ -182,7 +217,7 @@ MeDF/
 │   └── scripts/                  # เทสต์ end-to-end และสคริปต์ build
 ├── desktop/                      # เชลล์ Electron + ตัวติดตั้ง Windows
 ├── scripts/                      # guard โค้ดชั้นที่ชำระเงิน · git hooks · scaffold
-└── docs/                         # สถาปัตยกรรม · open core · Windows · การ deploy
+└── docs/                         # สถาปัตยกรรม · open core · เว็บเดโม · Windows · การ deploy
 ```
 
 อ่านที่มาที่ไปของการออกแบบ (ระบบพิกัด 3 ชั้น, ชั้นข้อมูล, ขั้นตอน export)

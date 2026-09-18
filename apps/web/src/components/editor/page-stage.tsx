@@ -84,6 +84,8 @@ interface PageStageProps {
   pdf: PDFDocumentProxy | null;
   renderScale: number;
   active: boolean;
+  /** Resolves an image element's asset to a renderable URL. */
+  assetUrl: (assetId: string) => string;
   onPlaced?: () => void;
 }
 
@@ -100,6 +102,7 @@ export function PageStage({
   pdf,
   renderScale,
   active,
+  assetUrl,
   onPlaced,
 }: PageStageProps) {
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -413,7 +416,7 @@ export function PageStage({
                   dispatch({ type: 'editing', id: element.id });
                 }}
               >
-                <ElementView element={element} editing={isEditing} />
+                <ElementView element={element} editing={isEditing} assetUrl={assetUrl} />
 
                 {isEditing && element.type === 'text' ? (
                   <textarea

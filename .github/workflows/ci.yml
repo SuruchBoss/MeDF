@@ -59,6 +59,16 @@ jobs:
       - name: Editor UI tests
         run: npm run test:ui
 
+      - name: Try-it-now editor tests
+        run: npm run test:demo
+
+      - name: Static demo build and check
+        run: |
+          npm run demo:build
+          npm run test:static
+        env:
+          NEXT_PUBLIC_BASE_PATH: /MeDF
+
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4

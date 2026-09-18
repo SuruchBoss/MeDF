@@ -11,6 +11,7 @@ import {
 import { overlaySchema } from '@/lib/editor-types';
 import { getPlan } from '@/lib/plans';
 import { assertCanExport, recordUsage } from '@/lib/quota';
+import { nodeFontLoader } from '@/lib/pdf/fonts-node';
 import { renderOverlayToPdf } from '@/lib/pdf/render';
 import { applyProExportTransform } from '@/lib/pro';
 import { handleRouteError, parseJson } from '@/lib/api';
@@ -56,6 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       source: new Uint8Array(source),
       overlay,
       loadAsset: assetLoaderFor(user.id),
+      fontLoader: nodeFontLoader,
       watermark: plan.limits.watermark,
       title: document.title,
       author: user.name,

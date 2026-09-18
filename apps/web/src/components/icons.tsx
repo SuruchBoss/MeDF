@@ -133,28 +133,68 @@ export function Icon({ name, size = 18, ...props }: IconProps) {
   );
 }
 
-/** Word mark used in the header, the editor chrome and the desktop shell. */
-export function Logo({ className = '', showText = true }: { className?: string; showText?: boolean }) {
+/**
+ * The MeDF mark: a document sheet with a folded corner and one element placed
+ * on it — which is exactly what the product does. The same geometry is
+ * rasterised for the Windows icon by `desktop/scripts/make-icon.mjs`, so the
+ * web and the installed app share one identity.
+ */
+export function LogoMark({ size = 32, className = '' }: { size?: number; className?: string }) {
+  // Fixed gradient ids: this renders in Server Components too, where `useId`
+  // is unavailable. Several marks on one page therefore repeat the definition,
+  // which resolves to an identical gradient and looks the same.
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
-      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-        <rect x="1.5" y="1.5" width="29" height="29" rx="8.5" fill="url(#medf-logo)" />
-        <path
-          d="M9 22.5V10.2c0-.6.7-.9 1.1-.4l4 4.9c.3.4.9.4 1.2 0l4-4.9c.4-.5 1.1-.2 1.1.4v12.3"
-          stroke="#fff"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <circle cx="23.5" cy="22.5" r="2.2" fill="#fff" />
-        <defs>
-          <linearGradient id="medf-logo" x1="0" y1="0" x2="32" y2="32">
-            <stop stopColor="#6366f1" />
-            <stop offset="1" stopColor="#8b5cf6" />
-          </linearGradient>
-        </defs>
-      </svg>
-      {showText ? <span className="text-lg font-bold tracking-tight">MeDF</span> : null}
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      className={className}
+      role="img"
+      aria-label="MeDF"
+    >
+      <defs>
+        <linearGradient id="medf-logo-tile" x1="2" y1="0" x2="30" y2="32">
+          <stop stopColor="#4f46e5" />
+          <stop offset="0.5" stopColor="#7c3aed" />
+          <stop offset="1" stopColor="#c026d3" />
+        </linearGradient>
+      </defs>
+
+      {/* App tile */}
+      <rect width="32" height="32" rx="8.5" fill="url(#medf-logo-tile)" />
+
+      {/* The document: a sheet with its top-right corner folded over */}
+      <path d="M6.4 8.4A2.8 2.8 0 0 1 9.2 5.6h7.4l5.6 5.6v9.2A2.8 2.8 0 0 1 19.4 23.2H9.2A2.8 2.8 0 0 1 6.4 20.4z" fill="#fff" />
+      <path d="M16.6 5.6 22.2 11.2h-5.6z" fill="#c4b5fd" />
+      <rect x="9.3" y="12.4" width="8.6" height="1.9" rx="0.95" fill="#4f46e5" fillOpacity="0.32" />
+      <rect x="9.3" y="15.8" width="5.6" height="1.9" rx="0.95" fill="#4f46e5" fillOpacity="0.32" />
+
+      {/* An element dragged onto the page, with its selection handle: the
+          overlap is the whole idea of the product. */}
+      <rect x="14.2" y="16.8" width="11.2" height="8.4" rx="2.4" fill="#fff" stroke="#4f46e5" strokeWidth="2.2" />
+      <circle cx="25.4" cy="25.2" r="2.4" fill="#fff" stroke="#4f46e5" strokeWidth="2" />
+    </svg>
+  );
+}
+
+/** Word mark used in the header, the editor chrome and the desktop shell. */
+export function Logo({
+  className = '',
+  showText = true,
+  size = 30,
+}: {
+  className?: string;
+  showText?: boolean;
+  size?: number;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-2.5 ${className}`}>
+      <LogoMark size={size} />
+      {showText ? (
+        <span className="text-[1.2rem] leading-none font-extrabold tracking-[-0.025em]">
+          Me<span className="text-brand-600">DF</span>
+        </span>
+      ) : null}
     </span>
   );
 }

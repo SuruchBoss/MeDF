@@ -55,3 +55,6 @@ Thumbs.db
 *.pro.js
 *.pro.mjs
 *.pro.cjs
+
+# generated: the demo's public assets are copied from apps/web at build time
+apps/demo/public/

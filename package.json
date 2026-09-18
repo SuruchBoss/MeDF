@@ -5,6 +5,7 @@
   "description": "MeDF \u2014 PDF editor with drag & drop overlay editing, members and subscriptions",
   "workspaces": [
     "apps/web",
+    "apps/demo",
     "desktop"
   ],
   "engines": {
@@ -20,16 +21,21 @@
     "desktop:build": "npm run build --workspace medf-desktop",
     "dist:win": "npm run dist:win --workspace medf-desktop",
     "dist:win:portable": "npm run dist:win:portable --workspace medf-desktop",
-    "test": "npm run guard:private && npm run test:api && npm run test:ui",
+    "test": "npm run guard:private && npm run test:api && npm run test:ui && npm run test:demo",
     "test:api": "node apps/web/scripts/smoke-test.mjs",
     "test:ui": "node apps/web/scripts/ui-test.mjs",
     "test:standalone": "node apps/web/scripts/verify-standalone.mjs",
     "test:desktop": "node desktop/scripts/verify-shell.mjs",
     "guard:private": "node scripts/guard-private.mjs",
     "setup:hooks": "node scripts/install-hooks.mjs",
-    "pro:scaffold": "node scripts/scaffold-pro.mjs"
+    "pro:scaffold": "node scripts/scaffold-pro.mjs",
+    "demo:dev": "npm run dev --workspace medf-demo",
+    "demo:build": "npm run build --workspace medf-demo",
+    "test:demo": "node apps/web/scripts/demo-test.mjs",
+    "test:static": "node apps/demo/scripts/static-test.mjs"
   },
   "devDependencies": {
-    "playwright": "1.56.1"
+    "playwright": "1.56.1",
+    "http-server": "^14.1.1"
   }
 }

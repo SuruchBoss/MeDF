@@ -1,0 +1,77 @@
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Required by actions/deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; let a newer push finish rather than cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the static demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        run: npm run demo:build
+        env:
+          # e.g. "/MeDF" for https://<user>.github.io/MeDF/, "" for a custom
+          # domain served from the root.
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify the exported site really works
+        run: npm run test:static
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/demo/out
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

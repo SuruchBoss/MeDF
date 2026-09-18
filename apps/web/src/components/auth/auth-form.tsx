@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
+import { useHydrated } from '@/lib/client/use-hydrated';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -19,6 +20,9 @@ export function AuthForm({ mode, next }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Until React has attached its handlers, a click would submit the form
+  // natively and look like nothing happened.
+  const ready = useHydrated();
 
   const isRegister = mode === 'register';
 
@@ -126,8 +130,8 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         </p>
       ) : null}
 
-      <button type="submit" className="btn-primary w-full py-3" disabled={busy}>
-        {busy ? <Spinner size={17} /> : null}
+      <button type="submit" className="btn-primary w-full py-3" disabled={busy || !ready}>
+        {busy || !ready ? <Spinner size={17} /> : null}
         {isRegister ? 'สมัครสมาชิกฟรี' : 'เข้าสู่ระบบ'}
       </button>
 

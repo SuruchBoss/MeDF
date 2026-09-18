@@ -1,6 +1,3 @@
-import 'server-only';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import fontkit from '@pdf-lib/fontkit';
 import { type PDFDocument, type PDFFont, StandardFonts } from 'pdf-lib';
 import type { FontFamily } from '../editor-types';
@@ -13,6 +10,11 @@ import type { FontFamily } from '../editor-types';
  * encode — which is every Thai character. The same TTFs are served to the
  * browser as web fonts, so what the member wraps on screen is what pdf-lib
  * wraps on export.
+ *
+ * This module is isomorphic: where the font *bytes* come from is the caller's
+ * business (`fonts-node.ts` reads them from disk, `fonts-browser.ts` fetches
+ * them), which is what lets the same export code run on the server and in the
+ * browser-only demo build.
  */
 
 export interface FontStyle {
@@ -21,7 +23,10 @@ export interface FontStyle {
   italic: boolean;
 }
 
-const SARABUN_FILES = {
+/** Resolves a bundled font file name to its bytes. */
+export type FontLoader = (fileName: string) => Promise<Uint8Array>;
+
+export const SARABUN_FILES = {
   regular: 'Sarabun-Regular.ttf',
   bold: 'Sarabun-Bold.ttf',
   italic: 'Sarabun-Italic.ttf',
@@ -29,40 +34,6 @@ const SARABUN_FILES = {
 } as const;
 
 type SarabunVariant = keyof typeof SARABUN_FILES;
-
-function fontDirCandidates(): string[] {
-  return [
-    path.join(process.cwd(), 'public', 'fonts'),
-    path.join(process.cwd(), 'apps', 'web', 'public', 'fonts'),
-    path.join(import.meta.dirname ?? '', '..', '..', '..', 'public', 'fonts'),
-  ];
-}
-
-const fileCache = new Map<string, Promise<Buffer>>();
-
-async function loadFontFile(fileName: string): Promise<Buffer> {
-  const cached = fileCache.get(fileName);
-  if (cached) return cached;
-
-  const promise = (async () => {
-    const tried: string[] = [];
-    for (const dir of fontDirCandidates()) {
-      // The font directory is resolved at runtime; tell Turbopack not to
-      // trace it, or it pulls the entire project into the server bundle.
-      const candidate = path.join(/* turbopackIgnore: true */ dir, fileName);
-      tried.push(candidate);
-      try {
-        return await fs.readFile(candidate);
-      } catch {
-        /* try the next location */
-      }
-    }
-    throw new Error(`ไม่พบไฟล์ฟอนต์ ${fileName} (ค้นหาที่: ${tried.join(', ')})`);
-  })();
-
-  fileCache.set(fileName, promise);
-  return promise;
-}
 
 function sarabunVariant(style: FontStyle): SarabunVariant {
   if (style.bold && style.italic) return 'boldItalic';
@@ -108,7 +79,10 @@ export class FontBook {
   private readonly cache = new Map<string, Promise<PDFFont>>();
   private fontkitRegistered = false;
 
-  constructor(private readonly doc: PDFDocument) {}
+  constructor(
+    private readonly doc: PDFDocument,
+    private readonly loadFontBytes: FontLoader,
+  ) {}
 
   /**
    * Resolves the font to use for a run of text, transparently upgrading to
@@ -131,7 +105,7 @@ export class FontBook {
           this.doc.registerFontkit(fontkit);
           this.fontkitRegistered = true;
         }
-        const bytes = await loadFontFile(SARABUN_FILES[sarabunVariant(style)]);
+        const bytes = await this.loadFontBytes(SARABUN_FILES[sarabunVariant(style)]);
         try {
           return await this.doc.embedFont(bytes, { subset: true });
         } catch {

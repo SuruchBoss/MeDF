@@ -38,6 +38,8 @@ export interface ToolbarProps {
   onRename: () => void;
   onFit: () => void;
   fitMode: 'page' | 'width';
+  backHref?: string;
+  backLabel?: string;
 }
 
 export function Toolbar({
@@ -58,6 +60,8 @@ export function Toolbar({
   onRename,
   onFit,
   fitMode,
+  backHref = '/app',
+  backLabel = 'เอกสารของฉัน',
 }: ToolbarProps) {
   function selectTool(next: Tool) {
     if (next === 'image') {
@@ -74,9 +78,9 @@ export function Toolbar({
   return (
     <div className="flex flex-col border-b border-ink-200 bg-white">
       <div className="flex h-14 items-center gap-3 px-3">
-        <Link href="/app" className="btn-ghost btn-sm" title="กลับไปที่เอกสารของฉัน">
+        <Link href={backHref} className="btn-ghost btn-sm" title={backLabel}>
           <Icon name="chevron-left" size={17} />
-          <span className="hidden sm:inline">เอกสารของฉัน</span>
+          <span className="hidden sm:inline">{backLabel}</span>
         </Link>
 
         <div className="flex min-w-0 items-center gap-2">

@@ -6,7 +6,7 @@ import { DocumentError, getDocument, readOverlay } from '@/lib/documents';
 import type { DocumentRecord } from '@/lib/db';
 import type { OverlayDoc } from '@/lib/editor-types';
 import { getPlan } from '@/lib/plans';
-import { EditorShell } from '@/components/editor/editor-shell';
+import { EditorScreen } from '@/components/editor/editor-screen';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,8 +33,10 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
   const plan = getPlan(user.plan);
 
   return (
-    <EditorShell
-      document={document}
+    <EditorScreen
+      documentId={document.id}
+      title={document.title}
+      revision={document.revision}
       overlay={overlay}
       plan={user.plan}
       watermark={plan.limits.watermark}

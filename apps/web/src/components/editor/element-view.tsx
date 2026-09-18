@@ -35,9 +35,12 @@ function lineArrow(
 export const ElementView = memo(function ElementView({
   element,
   editing = false,
+  assetUrl,
 }: {
   element: AnyElement;
   editing?: boolean;
+  /** Image elements are stored by id; the backend knows where the bytes are. */
+  assetUrl: (assetId: string) => string;
 }) {
   const fill: CSSProperties = { width: '100%', height: '100%' };
 
@@ -70,9 +73,9 @@ export const ElementView = memo(function ElementView({
 
     case 'image':
       return (
-        // eslint-disable-next-line @next/next/no-img-element -- overlay assets are served from our own API and sized by the element box.
+        // eslint-disable-next-line @next/next/no-img-element -- the URL comes from the backend (our API, or a blob in the demo) and the element box sets the size.
         <img
-          src={`/api/assets/${element.assetId}`}
+          src={assetUrl(element.assetId)}
           alt=""
           draggable={false}
           style={{ ...fill, objectFit: 'fill', display: 'block', pointerEvents: 'none' }}

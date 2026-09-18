@@ -1,4 +1,3 @@
-import 'server-only';
 import {
   BlendMode,
   PDFDocument,
@@ -11,7 +10,7 @@ import {
   rgb,
 } from 'pdf-lib';
 import type { AnyElement, OverlayDoc, PageState } from '../editor-types';
-import { FontBook, safeWidth, wrapText } from './fonts';
+import { FontBook, type FontLoader, safeWidth, wrapText } from './fonts';
 import {
   type Matrix,
   displaySize,
@@ -23,6 +22,10 @@ import {
 
 /**
  * Renders an overlay back onto its original PDF.
+ *
+ * This module is isomorphic. The server route uses it with a filesystem font
+ * loader; the browser-only demo build uses it with a fetching loader. Keeping
+ * one implementation means the demo and the real product cannot drift apart.
  *
  * The original pages are *copied*, not rasterised, so the exported file keeps
  * the source text, vectors and fonts; the member's elements are painted on top
@@ -49,6 +52,8 @@ export interface RenderOptions {
   overlay: OverlayDoc;
   /** Resolves image elements to their stored bytes. */
   loadAsset: (assetId: string) => Promise<AssetBytes | null>;
+  /** Supplies the bundled font files (see `fonts-node.ts` / `fonts-browser.ts`). */
+  fontLoader: FontLoader;
   /** Free-plan exports carry a small footer credit. */
   watermark?: boolean;
   title?: string;
@@ -120,7 +125,7 @@ export async function renderOverlayToPdf(options: RenderOptions): Promise<Render
     updateMetadata: false,
   });
   const out = await PDFDocument.create();
-  const fonts = new FontBook(out);
+  const fonts = new FontBook(out, options.fontLoader);
   const skipped: string[] = [];
   const imageCache = new Map<string, PDFImage | null>();
 

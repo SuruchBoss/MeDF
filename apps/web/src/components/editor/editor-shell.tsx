@@ -9,10 +9,10 @@ import {
   useState,
 } from 'react';
 import { Icon, Spinner } from '@/components/icons';
-import { ApiError, apiFetch, uploadWithProgress } from '@/lib/client/fetcher';
-import type { DocumentRecord } from '@/lib/db';
+import { ApiError } from '@/lib/client/fetcher';
 import type { OverlayDoc } from '@/lib/editor-types';
 import type { PlanId } from '@/lib/plans';
+import type { EditorBackend } from './backend';
 import { createImageElement, createSignatureElement } from './factories';
 import { PagesPanel } from './pages-panel';
 import { PageStage } from './page-stage';
@@ -31,28 +31,48 @@ import { useInView } from './use-in-view';
 /**
  * The editor. Owns document state, autosave, keyboard shortcuts, asset uploads
  * and export; the child components stay presentational.
+ *
+ * Everything that leaves the browser goes through `backend`, so the same
+ * editor drives the real product and the browser-only demo.
  */
 
 const AUTOSAVE_DELAY = 1200;
 const PAGE_GAP = 28;
 
-interface EditorShellProps {
-  document: DocumentRecord;
+export interface EditorShellProps {
+  backend: EditorBackend;
+  /** Initial document identity; the editor keeps the title in its own state. */
+  title: string;
+  revision: number;
   overlay: OverlayDoc;
   plan: PlanId;
   watermark: boolean;
+  /** Where "back" goes; the demo points it at the landing page. */
+  backHref?: string;
+  backLabel?: string;
 }
 
-export function EditorShell({ document: record, overlay, plan, watermark }: EditorShellProps) {
+export function EditorShell({
+  backend,
+  title: initialTitle,
+  revision,
+  overlay,
+  plan,
+  watermark,
+  backHref,
+  backLabel,
+}: EditorShellProps) {
   const [state, dispatch] = useReducer(editorReducer, overlay, createInitialState);
-  const [title, setTitle] = useState(record.title);
+  const [title, setTitle] = useState(initialTitle);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ tone: 'error' | 'info'; message: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'error' | 'info'; message: string } | null>(
+    backend.notice ? { tone: 'info', message: backend.notice } : null,
+  );
   const [signatureOpen, setSignatureOpen] = useState(false);
 
-  const revisionRef = useRef(record.revision);
+  const revisionRef = useRef(revision);
   const savedOverlayRef = useRef<OverlayDoc>(state.overlay);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Kept in state as well: the page observer needs the container as its root,
@@ -61,7 +81,7 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
 
-  const pdf = usePdfDocument(`/api/documents/${record.id}/file`);
+  const pdf = usePdfDocument(backend.pdfUrl);
 
   // Bitmap resolution is stepped, so small zoom changes do not re-rasterise.
   const renderScale = useMemo(() => {
@@ -95,14 +115,11 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
 
       setSaving(true);
       try {
-        const result = await apiFetch<{ document: DocumentRecord }>(
-          `/api/documents/${record.id}`,
-          {
-            method: 'PATCH',
-            body: JSON.stringify({ overlay: snapshot, baseRevision: revisionRef.current }),
-          },
-        );
-        revisionRef.current = result.document.revision;
+        const result = await backend.saveOverlay({
+          overlay: snapshot,
+          baseRevision: revisionRef.current,
+        });
+        revisionRef.current = result.revision;
         savedOverlayRef.current = snapshot;
         setSavedAt(new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
         // Only clear the dirty flag when nothing changed while saving.
@@ -116,7 +133,7 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
         setSaving(false);
       }
     },
-    [record.id, state.overlay],
+    [backend, state.overlay],
   );
 
   useEffect(() => {
@@ -301,14 +318,10 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
   async function handleImageFile(file: File) {
     try {
       const prepared = await prepareImage(file);
-      const form = new FormData();
-      form.append('file', prepared.file);
-      form.append('width', String(prepared.width));
-      form.append('height', String(prepared.height));
-
-      const result = await uploadWithProgress<{ asset: { id: string } }>({
-        url: `/api/documents/${record.id}/assets`,
-        form,
+      const result = await backend.uploadAsset({
+        file: prepared.file,
+        width: prepared.width,
+        height: prepared.height,
       });
 
       const page = state.overlay.pages[state.activePage];
@@ -317,7 +330,7 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
         type: 'add',
         element: createImageElement({
           page: state.activePage,
-          assetId: result.asset.id,
+          assetId: result.assetId,
           naturalWidth: prepared.width,
           naturalHeight: prepared.height,
           pageState: page,
@@ -337,19 +350,10 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
     setExporting(true);
     setNotice(null);
     try {
-      const response = await fetch(`/api/documents/${record.id}/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overlay: state.overlay, save: true, fileName: title }),
+      const { blob, skippedAssets: skipped } = await backend.exportPdf({
+        overlay: state.overlay,
+        title,
       });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new ApiError(payload?.error ?? `Export ไม่สำเร็จ (${response.status})`, response.status);
-      }
-
-      const skipped = Number(response.headers.get('X-Medf-Skipped-Assets') ?? '0');
-      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = window.document.createElement('a');
       link.href = url;
@@ -383,12 +387,9 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
     const next = window.prompt('ตั้งชื่อเอกสาร', title);
     if (!next || next.trim() === '' || next === title) return;
     try {
-      const result = await apiFetch<{ document: DocumentRecord }>(`/api/documents/${record.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ title: next.trim() }),
-      });
-      setTitle(result.document.title);
-      revisionRef.current = result.document.revision;
+      const result = await backend.rename(next.trim());
+      setTitle(result.title);
+      revisionRef.current = result.revision;
     } catch (error) {
       setNotice({
         tone: 'error',
@@ -415,6 +416,8 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
         onSave={() => void save()}
         onExport={() => void handleExport()}
         onRename={() => void handleRename()}
+        backHref={backHref}
+        backLabel={backLabel}
         onFit={toggleFit}
         fitMode={fitMode}
       />
@@ -517,6 +520,7 @@ export function EditorShell({ document: record, overlay, plan, watermark }: Edit
                         pdf={pdf.document}
                         renderScale={renderScale}
                         active={visible}
+                        assetUrl={backend.assetUrl}
                       />
                     </>
                   )}

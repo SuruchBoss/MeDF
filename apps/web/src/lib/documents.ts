@@ -1,5 +1,4 @@
 import 'server-only';
-import { PDFDocument } from 'pdf-lib';
 import {
   type AssetRecord,
   type DocumentRecord,
@@ -9,8 +8,8 @@ import {
   nowIso,
   readDb,
 } from './db';
-import { type OverlayDoc, type PageState, overlaySchema } from './editor-types';
-import { displaySize, normalizeRotation } from './pdf/matrix';
+import { type OverlayDoc, overlaySchema } from './editor-types';
+import { PdfGeometryError, readPageGeometry } from './pdf/page-geometry';
 import {
   deleteFileFrom,
   readFileFrom,
@@ -36,43 +35,14 @@ function overlayKey(documentId: string): string {
   return storageKey(documentId, 'json');
 }
 
-/** Reads the page geometry of an uploaded PDF, in base display space. */
-async function readPageGeometry(bytes: Uint8Array): Promise<PageState[]> {
-  let pdf: PDFDocument;
+/** Wraps the shared reader so callers get a status-carrying error. */
+async function pageGeometryOrFail(bytes: Uint8Array) {
   try {
-    pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    return await readPageGeometry(bytes);
   } catch (error) {
-    throw new DocumentError(
-      `ไม่สามารถอ่านไฟล์ PDF นี้ได้ (${(error as Error).message}) หากไฟล์ตั้งรหัสผ่านไว้ กรุณาปลดรหัสก่อนอัปโหลด`,
-      422,
-    );
+    if (error instanceof PdfGeometryError) throw new DocumentError(error.message, 422);
+    throw error;
   }
-
-  if (pdf.isEncrypted) {
-    throw new DocumentError('ไฟล์ PDF นี้ถูกเข้ารหัสไว้ กรุณาปลดรหัสผ่านก่อนอัปโหลด', 422);
-  }
-
-  const pages = pdf.getPages();
-  if (pages.length === 0) throw new DocumentError('ไฟล์ PDF ไม่มีหน้าเลย', 422);
-
-  return pages.map((page, index) => {
-    const box = (() => {
-      try {
-        return page.getCropBox();
-      } catch {
-        return page.getMediaBox();
-      }
-    })();
-    const rotation = normalizeRotation(page.getRotation().angle);
-    const size = displaySize(box.width, box.height, rotation);
-    return {
-      source: index,
-      rotation: 0 as const,
-      hidden: false,
-      width: Math.round(size.width * 100) / 100,
-      height: Math.round(size.height * 100) / 100,
-    } satisfies PageState;
-  });
 }
 
 export async function createDocument(options: {
@@ -84,7 +54,7 @@ export async function createDocument(options: {
   const { user, bytes } = options;
   await assertCanCreateDocument(user, bytes.byteLength);
 
-  const pages = await readPageGeometry(bytes);
+  const pages = await pageGeometryOrFail(bytes);
   assertPageCountAllowed(user, pages.length);
 
   const id = newId('doc');
@@ -145,7 +115,7 @@ export async function readOverlay(doc: DocumentRecord): Promise<OverlayDoc> {
   if (!raw) {
     // Overlay missing (e.g. restored backup): rebuild it from the source PDF.
     const bytes = await readDocumentBytes(doc);
-    const pages = await readPageGeometry(bytes);
+    const pages = await pageGeometryOrFail(bytes);
     const overlay: OverlayDoc = { version: 1, pages, elements: [] };
     await writeFileTo('overlays', overlayKey(doc.id), JSON.stringify(overlay));
     return overlay;

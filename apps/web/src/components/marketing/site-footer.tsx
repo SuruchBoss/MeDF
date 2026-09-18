@@ -1,7 +1,17 @@
 import Link from 'next/link';
 import { Logo } from '@/components/icons';
 
-export function SiteFooter() {
+export function SiteFooter({
+  variant = 'product',
+  repoUrl = 'https://github.com/SuruchBoss/MeDF',
+  tryHref = '/try',
+}: {
+  variant?: 'product' | 'demo';
+  repoUrl?: string;
+  tryHref?: string;
+}) {
+  const isDemo = variant === 'demo';
+
   return (
     <footer className="border-t border-ink-200 bg-white">
       <div className="container-page grid gap-10 py-12 md:grid-cols-4">
@@ -21,7 +31,7 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/pricing" className="hover:text-ink-900">
+              <Link href={isDemo ? '/#pricing' : '/pricing'} className="hover:text-ink-900">
                 แพ็กเกจและราคา
               </Link>
             </li>
@@ -33,23 +43,52 @@ export function SiteFooter() {
           </ul>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-ink-900">บัญชี</h3>
+          <h3 className="text-sm font-semibold text-ink-900">
+            {isDemo ? 'โอเพนซอร์ส' : 'บัญชี'}
+          </h3>
           <ul className="mt-3 space-y-2 text-sm text-ink-500">
-            <li>
-              <Link href="/register" className="hover:text-ink-900">
-                สมัครสมาชิก
-              </Link>
-            </li>
-            <li>
-              <Link href="/login" className="hover:text-ink-900">
-                เข้าสู่ระบบ
-              </Link>
-            </li>
-            <li>
-              <Link href="/app/billing" className="hover:text-ink-900">
-                จัดการการสมัครสมาชิก
-              </Link>
-            </li>
+            {isDemo ? (
+              <>
+                <li>
+                  <Link href={tryHref} className="hover:text-ink-900">
+                    ลองใช้ทันที (ไม่ต้องสมัคร)
+                  </Link>
+                </li>
+                <li>
+                  <a href={repoUrl} className="hover:text-ink-900" target="_blank" rel="noreferrer">
+                    ซอร์สโค้ดบน GitHub
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`${repoUrl}/blob/main/docs/OPEN_CORE.md`}
+                    className="hover:text-ink-900"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    โมเดล open core
+                  </a>
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <Link href="/register" className="hover:text-ink-900">
+                    สมัครสมาชิก
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-ink-900">
+                    เข้าสู่ระบบ
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/app/billing" className="hover:text-ink-900">
+                    จัดการการสมัครสมาชิก
+                  </Link>
+                </li>
+              </>
+            )}
           </ul>
         </div>
       </div>

@@ -19,6 +19,9 @@ interface PricingTableProps {
   /** Present on the billing screen; absent on marketing pages. */
   onChoose?: (plan: PlanId, interval: BillingInterval) => void;
   busyPlan?: PlanId | null;
+  /** The static demo has no sign-up, so its buttons lead to the editor. */
+  demo?: boolean;
+  tryHref?: string;
 }
 
 export function PricingTable({
@@ -26,6 +29,8 @@ export function PricingTable({
   currentPlan,
   onChoose,
   busyPlan = null,
+  demo = false,
+  tryHref = '/try',
 }: PricingTableProps) {
   const [interval, setInterval] = useState<BillingInterval>('monthly');
   const saving = yearlySavingPercent(PLANS.pro);
@@ -134,17 +139,25 @@ export function PricingTable({
                 ) : (
                   <Link
                     href={
-                      planId === 'free'
-                        ? signedIn
-                          ? '/app'
-                          : '/register'
-                        : signedIn
-                          ? `/app/billing?plan=${planId}&interval=${interval}`
-                          : `/register?plan=${planId}&interval=${interval}`
+                      demo
+                        ? tryHref
+                        : planId === 'free'
+                          ? signedIn
+                            ? '/app'
+                            : '/register'
+                          : signedIn
+                            ? `/app/billing?plan=${planId}&interval=${interval}`
+                            : `/register?plan=${planId}&interval=${interval}`
                     }
                     className={plan.highlight ? 'btn-primary w-full' : 'btn-secondary w-full'}
                   >
-                    {planId === 'free' ? 'เริ่มใช้ฟรี' : `เลือก ${plan.name}`}
+                    {demo
+                      ? planId === 'free'
+                        ? 'ลองใช้ทันที'
+                        : 'ลองเครื่องมือก่อน'
+                      : planId === 'free'
+                        ? 'เริ่มใช้ฟรี'
+                        : `เลือก ${plan.name}`}
                   </Link>
                 )}
               </div>
@@ -154,7 +167,9 @@ export function PricingTable({
       </div>
 
       <p className="mt-6 text-center text-xs text-ink-400">
-        ราคารวมภาษีมูลค่าเพิ่มแล้ว · ยกเลิกได้ทุกเมื่อ และใช้งานได้ถึงสิ้นรอบบิลที่จ่ายไว้
+        {demo
+          ? 'หน้านี้เป็นเดโมสาธารณะ ยังไม่เปิดรับสมัครสมาชิก · ติดตั้งเซิร์ฟเวอร์เองได้จากซอร์สโค้ด'
+          : 'ราคารวมภาษีมูลค่าเพิ่มแล้ว · ยกเลิกได้ทุกเมื่อ และใช้งานได้ถึงสิ้นรอบบิลที่จ่ายไว้'}
       </p>
     </div>
   );

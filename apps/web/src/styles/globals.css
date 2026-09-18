@@ -1,35 +1,12 @@
 @import 'tailwindcss';
 
-/* Sarabun is served locally so the editor matches the exported PDF exactly
-   (pdf-lib embeds these very files) and so the desktop build works offline. */
-@font-face {
-  font-family: 'Sarabun';
-  src: url('/fonts/Sarabun-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Sarabun';
-  src: url('/fonts/Sarabun-Italic.ttf') format('truetype');
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Sarabun';
-  src: url('/fonts/Sarabun-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Sarabun';
-  src: url('/fonts/Sarabun-BoldItalic.ttf') format('truetype');
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
+/* This stylesheet is shared by the product (`apps/web`) and the static public
+   demo (`apps/demo`), so both source trees have to be scanned for classes. */
+@source '../../src';
+@source '../../../demo/src';
+
+/* The Sarabun @font-face rules are emitted by <FontFaces />, which knows the
+   deployment's base path. */
 
 @theme {
   --font-sans: 'Sarabun', ui-sans-serif, system-ui, sans-serif;

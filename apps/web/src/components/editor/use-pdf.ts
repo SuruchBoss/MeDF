@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
+import { withBasePath } from '@/lib/base-path';
 
 /**
  * Loads pdf.js lazily (it is a large, browser-only bundle) and opens a
@@ -21,7 +22,7 @@ let pdfjsPromise: Promise<Pdfjs> | null = null;
  */
 export function loadPdfjs(): Promise<Pdfjs> {
   pdfjsPromise ??= (import('pdfjs-dist/legacy/build/pdf.mjs') as Promise<Pdfjs>).then((pdfjs) => {
-    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc = withBasePath('/pdf.worker.min.mjs');
     return pdfjs;
   });
   return pdfjsPromise;
