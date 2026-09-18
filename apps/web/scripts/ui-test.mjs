@@ -17,6 +17,13 @@ import { writeFile } from 'node:fs/promises';
 import { makeSamplePdf } from './make-sample-pdf.mjs';
 
 const require = createRequire(import.meta.url);
+/**
+ * The Next.js app directory, resolved from this file rather than from the
+ * caller's working directory — these scripts are run from the repository root
+ * (`npm run test:api`) as well as from `apps/web`.
+ */
+const webRoot = path.join(import.meta.dirname, '..');
+
 const PORT = Number(process.env.UI_PORT ?? 41930);
 const BASE = `http://127.0.0.1:${PORT}`;
 const PASSWORD = 'UiTestPassword123';
@@ -59,7 +66,7 @@ await writeFile(samplePath, await makeSamplePdf());
 
 const nextBin = require.resolve('next/dist/bin/next');
 const server = spawn('node', [nextBin, 'start', '-p', String(PORT)], {
-  cwd: process.cwd(),
+  cwd: webRoot,
   env: {
     ...process.env,
     NODE_ENV: 'production',

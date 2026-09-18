@@ -14,6 +14,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
+/**
+ * The Next.js app directory, resolved from this file rather than from the
+ * caller's working directory — these scripts are run from the repository root
+ * (`npm run test:api`) as well as from `apps/web`.
+ */
+const webRoot = path.join(import.meta.dirname, '..');
+
 const PORT = Number(process.env.DEMO_PORT ?? 41940);
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -37,7 +44,7 @@ function findChromium() {
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-demo-'));
 const server = spawn('node', [require.resolve('next/dist/bin/next'), 'start', '-p', String(PORT)], {
-  cwd: process.cwd(),
+  cwd: webRoot,
   env: {
     ...process.env,
     NODE_ENV: 'production',
