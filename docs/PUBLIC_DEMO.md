@@ -17,12 +17,18 @@
 
 รายละเอียดเชิงสถาปัตยกรรมอยู่ใน [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
-## เปิดใช้ครั้งแรก (ทำครั้งเดียว)
+## เปิดใช้ครั้งแรก
 
-1. ไปที่ **Settings → Pages** ของ repository
-2. ที่ **Build and deployment → Source** เลือก **GitHub Actions**
-3. ไปที่แท็บ **Actions → Deploy demo to GitHub Pages → Run workflow**
-   (หรือ merge เข้า `main` แล้ว workflow จะรันเอง)
+workflow ตั้ง `actions/configure-pages` ไว้ด้วย `enablement: true` จึง **เปิด Pages ให้เองได้**
+ไม่ต้องเข้าไปตั้งใน Settings ก่อน สิ่งที่ต้องทำคือให้ workflow ได้รันหนึ่งครั้ง
+
+- **วิธีที่ง่ายที่สุด:** merge เข้า `main` — workflow จะรันและ deploy ทันที
+- หรือกดรันเองที่ **Actions → Deploy demo to GitHub Pages → Run workflow**
+  (ปุ่มนี้จะปรากฏหลังไฟล์ workflow อยู่บน branch หลักแล้ว ซึ่งเป็นข้อกำหนดของ GitHub)
+
+ถ้า organization ปิด Pages ไว้ หรือ token ไม่มีสิทธิ์ `pages: write`
+ให้เปิดด้วยมือที่ **Settings → Pages → Build and deployment → Source = GitHub Actions**
+แล้วรัน workflow อีกครั้ง
 
 workflow อยู่ที่ [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) และจะ
 

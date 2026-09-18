@@ -43,6 +43,10 @@ jobs:
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for the repository if it is not enabled yet, so the
+          # first deploy needs no manual visit to Settings → Pages.
+          enablement: true
 
       - name: Build
         run: npm run demo:build
