@@ -91,6 +91,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
     });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

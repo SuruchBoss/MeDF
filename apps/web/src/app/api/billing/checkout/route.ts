@@ -19,6 +19,6 @@ export async function POST(request: Request) {
       user: refreshed ? toPublicUser(refreshed) : null,
     });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

@@ -1,10 +1,9 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { AuthError } from './auth';
-import { BillingError } from './billing';
-import { DocumentError } from './documents';
-import { QuotaError } from './quota';
+import { AppError, QuotaError } from './errors';
+import { translatorForRequest } from './i18n/server';
+import type { Translate } from './i18n';
 
 /** Shared JSON response helpers and a single place to map errors to statuses. */
 
@@ -16,22 +15,50 @@ export function jsonError(message: string, status = 400, extra?: Record<string, 
   return NextResponse.json({ error: message, ...extra }, { status });
 }
 
-export function handleRouteError(error: unknown): NextResponse {
-  if (error instanceof AuthError) return jsonError(error.message, error.status);
-  if (error instanceof DocumentError) return jsonError(error.message, error.status);
-  if (error instanceof BillingError) return jsonError(error.message, error.status);
+/**
+ * Turns anything thrown inside a route handler into a JSON response.
+ *
+ * `request` is what makes the message readable: a domain error carries a key
+ * and its parameters rather than a sentence, and this is the first point that
+ * knows which language the caller asked for. Without it the error would be
+ * rendered in the server's default language for everyone.
+ */
+export function handleRouteError(error: unknown, request?: Request): NextResponse {
+  const t: Translate = translatorForRequest(
+    request ?? new Request('http://localhost/', { headers: {} }),
+  );
+
   if (error instanceof QuotaError) {
-    return jsonError(error.message, 402, { hint: error.hint, code: 'quota_exceeded' });
-  }
-  if (error instanceof z.ZodError) {
-    const first = error.issues[0];
-    return jsonError(first?.message ?? 'ข้อมูลไม่ถูกต้อง', 422, {
-      issues: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+    return jsonError(t(error.key, error.params), error.status, {
+      hint: t(error.hintKey),
+      code: 'quota_exceeded',
     });
   }
+  if (error instanceof AppError) {
+    return jsonError(t(error.key, error.params), error.status);
+  }
+  if (error instanceof z.ZodError) {
+    // Zod messages are already keys (see the schemas in `auth.ts`), so each one
+    // goes through the translator the same way.
+    const issues = error.issues.map((issue) => ({
+      path: issue.path.join('.'),
+      message: translateIssue(issue.message, t),
+    }));
+    return jsonError(issues[0]?.message ?? t('api.invalidInput'), 422, { issues });
+  }
+
   console.error('[medf] unhandled route error', error);
-  const message = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่คาดคิด';
-  return jsonError(message, 500);
+  return jsonError(t('api.unexpected'), 500);
+}
+
+/**
+ * Zod carries a plain string, so a schema message may be one of our keys or a
+ * message Zod generated itself ("Expected string, received number"). A key
+ * round-trips through `t`; anything else is passed through untouched.
+ */
+function translateIssue(message: string, t: Translate): string {
+  const translated = t(message as Parameters<Translate>[0]);
+  return translated === message && !message.includes('.') ? message : translated;
 }
 
 /** Parses and validates a JSON request body. */
@@ -44,7 +71,7 @@ export async function parseJson<T extends z.ZodTypeAny>(
     raw = await request.json();
   } catch {
     throw new z.ZodError([
-      { code: 'custom', message: 'เนื้อหาคำขอไม่ใช่ JSON ที่ถูกต้อง', path: [], input: undefined },
+      { code: 'custom', message: 'api.badJson', path: [], input: undefined },
     ]);
   }
   return schema.parse(raw);

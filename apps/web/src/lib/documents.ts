@@ -17,17 +17,9 @@ import {
   storageKey,
   writeFileTo,
 } from './storage';
+import { DocumentError } from './errors';
+import { createTranslator, DEFAULT_LOCALE } from './i18n';
 import { assertCanCreateDocument, assertPageCountAllowed, recordUsage } from './quota';
-
-export class DocumentError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.status = status;
-    this.name = 'DocumentError';
-  }
-}
 
 export const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg'] as const;
 
@@ -40,7 +32,9 @@ async function pageGeometryOrFail(bytes: Uint8Array) {
   try {
     return await readPageGeometry(bytes);
   } catch (error) {
-    if (error instanceof PdfGeometryError) throw new DocumentError(error.message, 422);
+    if (error instanceof PdfGeometryError) {
+      throw new DocumentError('doc.error.unreadablePdf', { status: 422 });
+    }
     throw error;
   }
 }
@@ -64,7 +58,12 @@ export async function createDocument(options: {
   const overlay: OverlayDoc = { version: 1, pages, elements: [] };
   await writeFileTo('overlays', overlayKey(id), JSON.stringify(overlay));
 
-  const cleanName = options.fileName.replace(/\.pdf$/i, '').trim() || 'เอกสารไม่มีชื่อ';
+  // A stored title is data, not a rendered string: it keeps whatever it was
+  // named regardless of who opens it later, so the fallback uses the server's
+  // default language rather than the caller's.
+  const fallbackTitle = createTranslator(DEFAULT_LOCALE);
+  const cleanName =
+    options.fileName.replace(/\.pdf$/i, '').trim() || fallbackTitle('doc.untitled');
   const record: DocumentRecord = {
     id,
     userId: user.id,
@@ -97,8 +96,8 @@ export async function listDocuments(userId: string): Promise<DocumentRecord[]> {
 export async function getDocument(userId: string, documentId: string): Promise<DocumentRecord> {
   const db = await readDb();
   const doc = db.documents.find((candidate) => candidate.id === documentId);
-  if (!doc) throw new DocumentError('ไม่พบเอกสาร', 404);
-  if (doc.userId !== userId) throw new DocumentError('ไม่มีสิทธิ์เข้าถึงเอกสารนี้', 403);
+  if (!doc) throw new DocumentError('doc.error.notFound', { status: 404 });
+  if (doc.userId !== userId) throw new DocumentError('doc.error.forbidden', { status: 403 });
   return doc;
 }
 
@@ -106,7 +105,7 @@ export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
   try {
     return await readFileFrom('pdf', doc.fileKey);
   } catch {
-    throw new DocumentError('ไฟล์ต้นฉบับหายไปจากพื้นที่จัดเก็บ', 410);
+    throw new DocumentError('doc.error.fileMissing', { status: 410 });
   }
 }
 
@@ -122,7 +121,7 @@ export async function readOverlay(doc: DocumentRecord): Promise<OverlayDoc> {
   }
   const parsed = overlaySchema.safeParse(raw);
   if (!parsed.success) {
-    throw new DocumentError('ข้อมูลการแก้ไขของเอกสารนี้เสียหาย', 422);
+    throw new DocumentError('doc.error.overlayCorrupt', { status: 422 });
   }
   return parsed.data;
 }
@@ -139,7 +138,7 @@ export async function saveOverlay(
   return mutate(
     (db) => {
       const target = db.documents.find((candidate) => candidate.id === doc.id);
-      if (!target) throw new DocumentError('ไม่พบเอกสาร', 404);
+      if (!target) throw new DocumentError('doc.error.notFound', { status: 404 });
       target.updatedAt = nowIso();
       target.revision += 1;
       target.elementCount = overlay.elements.length;
@@ -152,10 +151,10 @@ export async function saveOverlay(
 
 export async function renameDocument(doc: DocumentRecord, title: string): Promise<DocumentRecord> {
   const clean = title.trim().slice(0, 120);
-  if (!clean) throw new DocumentError('ชื่อเอกสารว่างไม่ได้');
+  if (!clean) throw new DocumentError('doc.error.emptyTitle');
   return mutate((db) => {
     const target = db.documents.find((candidate) => candidate.id === doc.id);
-    if (!target) throw new DocumentError('ไม่พบเอกสาร', 404);
+    if (!target) throw new DocumentError('doc.error.notFound', { status: 404 });
     target.title = clean;
     target.updatedAt = nowIso();
     return target;
@@ -195,7 +194,7 @@ export async function duplicateDocument(
     ...doc,
     id,
     fileKey,
-    title: `${doc.title} (สำเนา)`.slice(0, 120),
+    title: createTranslator(DEFAULT_LOCALE)('doc.copySuffix', { title: doc.title }).slice(0, 120),
     createdAt: nowIso(),
     updatedAt: nowIso(),
     revision: 1,
@@ -243,11 +242,11 @@ export async function createAsset(options: {
 }): Promise<AssetRecord> {
   const { user, bytes, mimeType } = options;
   if (!IMAGE_MIME_TYPES.includes(mimeType as (typeof IMAGE_MIME_TYPES)[number])) {
-    throw new DocumentError('รองรับเฉพาะไฟล์ PNG และ JPEG', 415);
+    throw new DocumentError('doc.error.imageType', { status: 415 });
   }
   const maxBytes = 20 * 1024 * 1024;
   if (bytes.byteLength > maxBytes) {
-    throw new DocumentError('ไฟล์รูปภาพต้องไม่เกิน 20 MB', 413);
+    throw new DocumentError('doc.error.imageTooLarge', { status: 413 });
   }
 
   const id = newId('ast');
@@ -275,8 +274,10 @@ export async function createAsset(options: {
 export async function getAsset(userId: string, assetId: string): Promise<AssetRecord> {
   const db = await readDb();
   const asset = db.assets.find((candidate) => candidate.id === assetId);
-  if (!asset) throw new DocumentError('ไม่พบรูปภาพ', 404);
-  if (asset.userId !== userId) throw new DocumentError('ไม่มีสิทธิ์เข้าถึงรูปภาพนี้', 403);
+  if (!asset) throw new DocumentError('doc.error.assetNotFound', { status: 404 });
+  if (asset.userId !== userId) {
+    throw new DocumentError('doc.error.assetForbidden', { status: 403 });
+  }
   return asset;
 }
 

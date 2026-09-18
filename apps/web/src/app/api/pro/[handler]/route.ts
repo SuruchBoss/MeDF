@@ -44,7 +44,7 @@ async function dispatch(request: Request, { params }: Params) {
 
     return await handler.handle(request, user);
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }
 

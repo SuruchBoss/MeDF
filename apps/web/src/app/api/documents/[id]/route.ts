@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   try {
     const user = await ensurePlanFresh(await requireUser());
     const { id } = await params;
@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
     const overlay = await readOverlay(document);
     return jsonOk({ document, overlay });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }
 
@@ -62,11 +62,11 @@ export async function PATCH(request: Request, { params }: Params) {
 
     return jsonOk({ document });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: Params) {
   try {
     const user = await requireUser();
     const { id } = await params;
@@ -74,6 +74,6 @@ export async function DELETE(_request: Request, { params }: Params) {
     await deleteDocument(document);
     return jsonOk({ ok: true });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

@@ -5,13 +5,13 @@ import { handleRouteError, jsonOk } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const current = await getCurrentUser();
     if (!current) return jsonOk({ user: null, usage: null });
     const user = await ensurePlanFresh(current);
     return jsonOk({ user: toPublicUser(user), usage: await getUsageSummary(user) });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

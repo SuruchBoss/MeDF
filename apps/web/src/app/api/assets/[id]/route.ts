@@ -4,7 +4,7 @@ import { handleRouteError } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireUser();
     const { id } = await params;
@@ -20,6 +20,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       },
     });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

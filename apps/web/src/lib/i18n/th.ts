@@ -265,6 +265,50 @@ export const th = {
   'preview.position': 'ตำแหน่ง X / Y',
   'preview.properties': 'คุณสมบัติ',
 
+  'auth.validation.email': 'อีเมลไม่ถูกต้อง',
+  'auth.validation.name': 'กรุณากรอกชื่อ',
+  'auth.validation.password': 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร',
+  'doc.copySuffix': '{title} (สำเนา)',
+  'doc.untitled': 'เอกสารไม่มีชื่อ',
+
+  // --- Server errors --------------------------------------------------------
+  'auth.error.emailTaken': 'อีเมลนี้ถูกใช้สมัครไปแล้ว',
+  'auth.error.noAccount': 'ไม่พบบัญชีผู้ใช้',
+  'auth.error.signInRequired': 'กรุณาเข้าสู่ระบบ',
+  'auth.error.tooManyAttempts': 'ลองเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารออีก {minutes} นาที',
+  'auth.error.wrongCurrentPassword': 'รหัสผ่านปัจจุบันไม่ถูกต้อง',
+  'auth.error.wrongCredentials': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+
+  'billing.error.alreadyFree': 'บัญชีนี้ใช้แพ็กเกจฟรีอยู่แล้ว',
+  'billing.error.noCancellation': 'ไม่มีการยกเลิกที่ค้างอยู่',
+  'billing.error.noUser': 'ไม่พบบัญชีผู้ใช้',
+  'billing.error.notConfigured':
+    'ระบบชำระเงินยังไม่ได้ตั้งค่า กรุณาติดต่อผู้ดูแลระบบ (ต้องตั้งค่า STRIPE_SECRET_KEY)',
+  'billing.error.pickPaidPlan': 'เลือกแพ็กเกจแบบชำระเงินที่ต้องการสมัคร',
+  'billing.error.stripeNoPrice': 'ยังไม่ได้ตั้งค่า Stripe price สำหรับแพ็กเกจ {plan} แบบ {interval}',
+  'billing.error.stripeNoUrl': 'Stripe ไม่ได้ส่ง URL สำหรับชำระเงินกลับมา',
+
+  'doc.error.assetForbidden': 'ไม่มีสิทธิ์เข้าถึงรูปภาพนี้',
+  'doc.error.assetNotFound': 'ไม่พบรูปภาพ',
+  'doc.error.emptyTitle': 'ชื่อเอกสารว่างไม่ได้',
+  'doc.error.fileMissing': 'ไฟล์ต้นฉบับหายไปจากพื้นที่จัดเก็บ',
+  'doc.error.forbidden': 'ไม่มีสิทธิ์เข้าถึงเอกสารนี้',
+  'doc.error.imageTooLarge': 'ไฟล์รูปภาพต้องไม่เกิน 20 MB',
+  'doc.error.imageType': 'รองรับเฉพาะไฟล์ PNG และ JPEG',
+  'doc.error.notFound': 'ไม่พบเอกสาร',
+  'doc.error.overlayCorrupt': 'ข้อมูลการแก้ไขของเอกสารนี้เสียหาย',
+  'doc.error.unreadablePdf': 'อ่านไฟล์ PDF นี้ไม่ได้ ไฟล์อาจเสียหายหรือถูกเข้ารหัสไว้',
+
+  'quota.documents': 'แพ็กเกจ {plan} เก็บเอกสารได้ {limit} ไฟล์ (ใช้แล้ว {used} ไฟล์)',
+  'quota.exports': 'เดือนนี้ export ครบ {limit} ครั้งแล้ว โควตาจะรีเซ็ตเดือนหน้า',
+  'quota.fileSize': 'ไฟล์ใหญ่เกินกำหนด แพ็กเกจ {plan} รับไฟล์ไม่เกิน {limit} MB',
+  'quota.hintUpgrade': 'อัปเกรดแพ็กเกจเพื่อเพิ่มโควตา',
+  'quota.pageCount': 'เอกสารมี {pages} หน้า แต่แพ็กเกจ {plan} รองรับไม่เกิน {limit} หน้า',
+
+  'api.badJson': 'เนื้อหาคำขอไม่ใช่ JSON ที่ถูกต้อง',
+  'api.invalidInput': 'ข้อมูลไม่ถูกต้อง',
+  'api.unexpected': 'เกิดข้อผิดพลาดที่ไม่คาดคิด',
+
   // --- Landing page ---------------------------------------------------------
   'landing.badge': 'แก้ไข PDF ได้เหมือนโปรแกรมออกแบบ',
   'landing.cta.body': 'สมัครสมาชิกฟรี ใช้เครื่องมือแก้ไขได้ครบทุกชนิด และ export ได้ทันที',

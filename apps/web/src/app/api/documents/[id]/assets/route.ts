@@ -33,6 +33,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return jsonOk({ asset }, { status: 201 });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

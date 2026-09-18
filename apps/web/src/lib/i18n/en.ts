@@ -264,6 +264,50 @@ export const en: Record<MessageKey, string> = {
   'preview.position': 'Position X / Y',
   'preview.properties': 'Properties',
 
+  'auth.validation.email': 'That email address is not valid.',
+  'auth.validation.name': 'Please enter your name.',
+  'auth.validation.password': 'The password must be at least 8 characters.',
+  'doc.copySuffix': '{title} (copy)',
+  'doc.untitled': 'Untitled document',
+
+  // --- Server errors --------------------------------------------------------
+  'auth.error.emailTaken': 'That email address is already registered.',
+  'auth.error.noAccount': 'Account not found.',
+  'auth.error.signInRequired': 'Please sign in.',
+  'auth.error.tooManyAttempts': 'Too many failed sign-in attempts. Try again in {minutes} minutes.',
+  'auth.error.wrongCurrentPassword': 'That is not your current password.',
+  'auth.error.wrongCredentials': 'Wrong email or password.',
+
+  'billing.error.alreadyFree': 'This account is already on the Free plan.',
+  'billing.error.noCancellation': 'There is no pending cancellation.',
+  'billing.error.noUser': 'Account not found.',
+  'billing.error.notConfigured':
+    'Billing is not configured. Contact the administrator — STRIPE_SECRET_KEY needs to be set.',
+  'billing.error.pickPaidPlan': 'Choose a paid plan to subscribe to.',
+  'billing.error.stripeNoPrice': 'No Stripe price is configured for {plan} billed {interval}.',
+  'billing.error.stripeNoUrl': 'Stripe did not return a checkout URL.',
+
+  'doc.error.assetForbidden': 'You do not have access to this image.',
+  'doc.error.assetNotFound': 'Image not found.',
+  'doc.error.emptyTitle': 'A document needs a name.',
+  'doc.error.fileMissing': 'The original file is missing from storage.',
+  'doc.error.forbidden': 'You do not have access to this document.',
+  'doc.error.imageTooLarge': 'Images must be 20 MB or smaller.',
+  'doc.error.imageType': 'Only PNG and JPEG images are supported.',
+  'doc.error.notFound': 'Document not found.',
+  'doc.error.overlayCorrupt': 'This document\u2019s edits could not be read.',
+  'doc.error.unreadablePdf': 'This PDF could not be read. It may be damaged or encrypted.',
+
+  'quota.documents': 'The {plan} plan holds {limit} documents, and you have {used}.',
+  'quota.exports': 'You have used all {limit} exports this month. The quota resets next month.',
+  'quota.fileSize': 'That file is too large. The {plan} plan accepts files up to {limit} MB.',
+  'quota.hintUpgrade': 'Upgrade your plan for a bigger quota.',
+  'quota.pageCount': 'This document has {pages} pages; the {plan} plan allows up to {limit}.',
+
+  'api.badJson': 'The request body is not valid JSON.',
+  'api.invalidInput': 'Invalid input.',
+  'api.unexpected': 'Something unexpected went wrong.',
+
   // --- Landing page ---------------------------------------------------------
   'landing.badge': 'PDF editing that feels like a design tool',
   'landing.cta.body':

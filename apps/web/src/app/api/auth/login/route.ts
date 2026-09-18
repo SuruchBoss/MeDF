@@ -24,6 +24,6 @@ export async function POST(request: Request) {
     return jsonOk({ user: toPublicUser(user) });
   } catch (error) {
     if (error instanceof Error && error.name === 'AuthError') recordLoginFailure(rateKey);
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

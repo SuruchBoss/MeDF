@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * it to hide entry points for add-ons that are either not installed here or
  * not included in the member's plan.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
     const plan = user?.plan ?? 'free';
@@ -19,6 +19,6 @@ export async function GET() {
       features: featureAvailability({ plan }),
     });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

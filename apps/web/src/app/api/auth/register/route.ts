@@ -8,6 +8,6 @@ export async function POST(request: Request) {
     await startSession(user);
     return jsonOk({ user: toPublicUser(user) }, { status: 201 });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

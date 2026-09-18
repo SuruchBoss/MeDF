@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
+import { AuthError } from './errors';
 import {
   type UserRecord,
   mutate,
@@ -22,13 +23,18 @@ import type { PlanId, PlanStatus } from './plans';
 const BCRYPT_ROUNDS = 11;
 const secretKey = new TextEncoder().encode(SESSION_SECRET);
 
+/**
+ * Validation messages are message keys, not sentences: the schema runs on the
+ * server with no idea which language the caller reads, and `handleRouteError`
+ * renders them per request.
+ */
 export const credentialsSchema = z.object({
-  email: z.string().trim().min(3).max(200).email('อีเมลไม่ถูกต้อง'),
-  password: z.string().min(8, 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร').max(200),
+  email: z.string().trim().min(3).max(200).email('auth.validation.email'),
+  password: z.string().min(8, 'auth.validation.password').max(200),
 });
 
 export const registerSchema = credentialsSchema.extend({
-  name: z.string().trim().min(1, 'กรุณากรอกชื่อ').max(80),
+  name: z.string().trim().min(1, 'auth.validation.name').max(80),
 });
 
 /** The user shape that is safe to hand to the browser. */
@@ -68,23 +74,13 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
   return bcrypt.compare(password, hash);
 }
 
-export class AuthError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.status = status;
-    this.name = 'AuthError';
-  }
-}
-
 export async function createUser(input: z.infer<typeof registerSchema>): Promise<UserRecord> {
   const emailKey = input.email.toLowerCase();
   const passwordHash = await hashPassword(input.password);
 
   return mutate((db) => {
     if (db.users.some((user) => user.emailKey === emailKey)) {
-      throw new AuthError('อีเมลนี้ถูกใช้สมัครไปแล้ว', 409);
+      throw new AuthError('auth.error.emailTaken', { status: 409 });
     }
     const isFirstUser = db.users.length === 0;
     const user: UserRecord = {
@@ -121,7 +117,7 @@ export async function authenticate(email: string, password: string): Promise<Use
   const hash = user?.passwordHash ?? '$2a$11$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
   const ok = await verifyPassword(password, hash);
   if (!user || !ok) {
-    throw new AuthError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401);
+    throw new AuthError('auth.error.wrongCredentials', { status: 401 });
   }
 
   await mutate((current) => {
@@ -135,9 +131,9 @@ export async function authenticate(email: string, password: string): Promise<Use
 export async function updatePassword(userId: string, currentPassword: string, nextPassword: string) {
   const db = await readDb();
   const user = db.users.find((candidate) => candidate.id === userId);
-  if (!user) throw new AuthError('ไม่พบบัญชีผู้ใช้', 404);
+  if (!user) throw new AuthError('auth.error.noAccount', { status: 404 });
   if (!(await verifyPassword(currentPassword, user.passwordHash))) {
-    throw new AuthError('รหัสผ่านปัจจุบันไม่ถูกต้อง', 400);
+    throw new AuthError('auth.error.wrongCurrentPassword');
   }
   const passwordHash = await hashPassword(nextPassword);
   await mutate((current) => {
@@ -206,7 +202,7 @@ export async function getCurrentUser(): Promise<UserRecord | null> {
 
 export async function requireUser(): Promise<UserRecord> {
   const user = await getCurrentUser();
-  if (!user) throw new AuthError('กรุณาเข้าสู่ระบบ', 401);
+  if (!user) throw new AuthError('auth.error.signInRequired', { status: 401 });
   return user;
 }
 
@@ -233,7 +229,7 @@ export function checkLoginRate(key: string): void {
   if (!entry) return;
   if (entry.blockedUntil > now) {
     const minutes = Math.ceil((entry.blockedUntil - now) / 60000);
-    throw new AuthError(`ลองเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารออีก ${minutes} นาที`, 429);
+    throw new AuthError('auth.error.tooManyAttempts', { status: 429, params: { minutes } });
   }
   if (now - entry.firstAt > WINDOW_MS) attempts.delete(key);
 }

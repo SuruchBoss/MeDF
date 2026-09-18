@@ -14,6 +14,6 @@ export async function POST(request: Request) {
     await updatePassword(user.id, input.currentPassword, input.newPassword);
     return jsonOk({ ok: true, message: 'เปลี่ยนรหัสผ่านเรียบร้อย กรุณาเข้าสู่ระบบใหม่' });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }

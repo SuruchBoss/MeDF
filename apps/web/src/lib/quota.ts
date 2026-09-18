@@ -1,21 +1,12 @@
 import 'server-only';
 import { type UserRecord, currentPeriod, mutate, newId, nowIso, readDb } from './db';
+import { QuotaError } from './errors';
 import { getPlan } from './plans';
 
 /**
  * Plan enforcement. Every limit is checked on the server; the client only ever
  * mirrors these numbers for display.
  */
-
-export class QuotaError extends Error {
-  readonly hint: string;
-
-  constructor(message: string, hint = 'อัปเกรดแพ็กเกจเพื่อเพิ่มโควตา') {
-    super(message);
-    this.hint = hint;
-    this.name = 'QuotaError';
-  }
-}
 
 export interface UsageSummary {
   documents: number;
@@ -55,24 +46,24 @@ export async function assertCanCreateDocument(user: UserRecord, sizeBytes: numbe
   const owned = db.documents.filter((doc) => doc.userId === user.id).length;
 
   if (owned >= plan.limits.maxDocuments) {
-    throw new QuotaError(
-      `แพ็กเกจ ${plan.name} เก็บเอกสารได้ ${plan.limits.maxDocuments} ไฟล์ (ใช้แล้ว ${owned} ไฟล์)`,
-    );
+    throw new QuotaError('quota.documents', {
+      params: { plan: plan.name, limit: plan.limits.maxDocuments, used: owned },
+    });
   }
   const maxBytes = plan.limits.maxUploadMb * 1024 * 1024;
   if (sizeBytes > maxBytes) {
-    throw new QuotaError(
-      `ไฟล์ใหญ่เกินกำหนด แพ็กเกจ ${plan.name} รับไฟล์ไม่เกิน ${plan.limits.maxUploadMb} MB`,
-    );
+    throw new QuotaError('quota.fileSize', {
+      params: { plan: plan.name, limit: plan.limits.maxUploadMb },
+    });
   }
 }
 
 export function assertPageCountAllowed(user: UserRecord, pageCount: number): void {
   const plan = getPlan(user.plan);
   if (pageCount > plan.limits.maxPages) {
-    throw new QuotaError(
-      `เอกสารมี ${pageCount} หน้า แต่แพ็กเกจ ${plan.name} รองรับไม่เกิน ${plan.limits.maxPages} หน้า`,
-    );
+    throw new QuotaError('quota.pageCount', {
+      params: { pages: pageCount, plan: plan.name, limit: plan.limits.maxPages },
+    });
   }
 }
 
@@ -87,9 +78,7 @@ export async function assertCanExport(user: UserRecord): Promise<void> {
   ).length;
 
   if (used >= plan.limits.exportsPerMonth) {
-    throw new QuotaError(
-      `เดือนนี้ export ครบ ${plan.limits.exportsPerMonth} ครั้งแล้ว โควตาจะรีเซ็ตเดือนหน้า`,
-    );
+    throw new QuotaError('quota.exports', { params: { limit: plan.limits.exportsPerMonth } });
   }
 }
 

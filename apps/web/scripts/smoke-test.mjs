@@ -116,6 +116,32 @@ async function main() {
     check('หน้า 404 เป็นหน้าของแอปเอง', missingHtml.includes('ไม่พบหน้าที่ต้องการ'));
     check('หน้า 404 มีทางกลับ', missingHtml.includes('กลับหน้าแรก'));
 
+    // Errors are thrown deep in lib/ with a message key, not a sentence — this
+    // is what proves the key survives all the way out as the caller's language.
+    const thaiError = await anonymousFetch('/api/documents');
+    const thaiBody = await thaiError.json();
+    check('ข้อความ error เป็นภาษาไทยโดยค่าเริ่มต้น', thaiBody.error === 'กรุณาเข้าสู่ระบบ', thaiBody.error);
+
+    const englishError = await anonymousFetch('/api/documents', {
+      headers: { 'accept-language': 'en-GB,en;q=0.9' },
+    });
+    const englishBody = await englishError.json();
+    check('ข้อความ error เป็นภาษาอังกฤษเมื่อ Accept-Language บอกว่า en',
+      englishBody.error === 'Please sign in.', englishBody.error);
+
+    // Quality values decide, not the order the browser happened to send them.
+    const thaiPreferred = await anonymousFetch('/api/documents', {
+      headers: { 'accept-language': 'en;q=0.8, th;q=1.0' },
+    });
+    check('Accept-Language ที่ให้น้ำหนักไทยสูงกว่า ได้ภาษาไทย',
+      (await thaiPreferred.json()).error === 'กรุณาเข้าสู่ระบบ');
+
+    // The cookie is an explicit choice and outranks the browser's preference.
+    const cookieWins = await anonymousFetch('/api/documents', {
+      headers: { 'accept-language': 'th-TH', cookie: 'medf_locale=en' },
+    });
+    check('คุกกี้ภาษาชนะ Accept-Language', (await cookieWins.json()).error === 'Please sign in.');
+
     // --- Auth ---------------------------------------------------------------
     console.log('\n[2] ระบบสมาชิก');
     const alice = new Session();

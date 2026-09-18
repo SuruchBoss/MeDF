@@ -8,6 +8,7 @@ import {
   readDb,
 } from './db';
 import { APP_URL, billingSandboxEnabled, stripeConfig, stripeEnabled } from './env';
+import { BillingError } from './errors';
 import {
   type BillingInterval,
   type PlanId,
@@ -25,16 +26,6 @@ import {
  * what the desktop build and local development use.
  */
 
-export class BillingError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.status = status;
-    this.name = 'BillingError';
-  }
-}
-
 export interface CheckoutResult {
   provider: 'stripe' | 'sandbox';
   /** Where the browser should go next. */
@@ -50,7 +41,7 @@ function periodEnd(interval: BillingInterval, from: Date = new Date()): string {
 
 export function assertPaidPlan(planId: string): PlanId {
   if (!PAID_PLANS.includes(planId as PlanId)) {
-    throw new BillingError('เลือกแพ็กเกจแบบชำระเงินที่ต้องการสมัคร', 400);
+    throw new BillingError('billing.error.pickPaidPlan');
   }
   return planId as PlanId;
 }
@@ -71,7 +62,7 @@ export async function activatePlan(options: {
 
   return mutate((db) => {
     const user = db.users.find((candidate) => candidate.id === options.userId);
-    if (!user) throw new BillingError('ไม่พบบัญชีผู้ใช้', 404);
+    if (!user) throw new BillingError('billing.error.noUser', { status: 404 });
 
     user.plan = options.plan;
     user.planStatus = 'active';
@@ -110,10 +101,10 @@ export async function startCheckout(options: {
   if (stripeEnabled) {
     const priceId = stripeConfig.prices[plan as 'pro' | 'team']?.[interval];
     if (!priceId) {
-      throw new BillingError(
-        `ยังไม่ได้ตั้งค่า Stripe price สำหรับแพ็กเกจ ${plan} แบบ ${interval}`,
-        500,
-      );
+      throw new BillingError('billing.error.stripeNoPrice', {
+        status: 500,
+        params: { plan, interval },
+      });
     }
     const { default: Stripe } = await import('stripe');
     const stripe = new Stripe(stripeConfig.secretKey!);
@@ -146,15 +137,12 @@ export async function startCheckout(options: {
       subscription_data: { metadata: { medfUserId: user.id, plan, interval } },
     });
 
-    if (!session.url) throw new BillingError('Stripe ไม่ได้ส่ง URL สำหรับชำระเงินกลับมา', 502);
+    if (!session.url) throw new BillingError('billing.error.stripeNoUrl', { status: 502 });
     return { provider: 'stripe', url: session.url };
   }
 
   if (!billingSandboxEnabled) {
-    throw new BillingError(
-      'ระบบชำระเงินยังไม่ได้ตั้งค่า กรุณาติดต่อผู้ดูแลระบบ (ต้องตั้งค่า STRIPE_SECRET_KEY)',
-      503,
-    );
+    throw new BillingError('billing.error.notConfigured', { status: 503 });
   }
 
   await activatePlan({
@@ -169,7 +157,7 @@ export async function startCheckout(options: {
 
 export async function cancelSubscription(user: UserRecord): Promise<UserRecord> {
   if (!isPaidPlan(user.plan)) {
-    throw new BillingError('บัญชีนี้ใช้แพ็กเกจฟรีอยู่แล้ว', 400);
+    throw new BillingError('billing.error.alreadyFree');
   }
 
   if (stripeEnabled && user.stripeSubscriptionId) {
@@ -180,7 +168,7 @@ export async function cancelSubscription(user: UserRecord): Promise<UserRecord> 
 
   return mutate((db) => {
     const target = db.users.find((candidate) => candidate.id === user.id);
-    if (!target) throw new BillingError('ไม่พบบัญชีผู้ใช้', 404);
+    if (!target) throw new BillingError('billing.error.noUser', { status: 404 });
     target.cancelAtPeriodEnd = true;
     target.planStatus = 'canceled';
     // The paid period is honoured until it runs out.
@@ -191,7 +179,7 @@ export async function cancelSubscription(user: UserRecord): Promise<UserRecord> 
 
 export async function resumeSubscription(user: UserRecord): Promise<UserRecord> {
   if (!isPaidPlan(user.plan) || !user.cancelAtPeriodEnd) {
-    throw new BillingError('ไม่มีการยกเลิกที่ค้างอยู่', 400);
+    throw new BillingError('billing.error.noCancellation');
   }
 
   if (stripeEnabled && user.stripeSubscriptionId) {
@@ -202,7 +190,7 @@ export async function resumeSubscription(user: UserRecord): Promise<UserRecord> 
 
   return mutate((db) => {
     const target = db.users.find((candidate) => candidate.id === user.id);
-    if (!target) throw new BillingError('ไม่พบบัญชีผู้ใช้', 404);
+    if (!target) throw new BillingError('billing.error.noUser', { status: 404 });
     target.cancelAtPeriodEnd = false;
     target.planStatus = 'active';
     return target;

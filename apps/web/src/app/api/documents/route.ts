@@ -6,13 +6,13 @@ import { handleRouteError, jsonError, jsonOk } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await ensurePlanFresh(await requireUser());
     const [documents, usage] = await Promise.all([listDocuments(user.id), getUsageSummary(user)]);
     return jsonOk({ documents, usage });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }
 
@@ -43,6 +43,6 @@ export async function POST(request: Request) {
 
     return jsonOk({ document }, { status: 201 });
   } catch (error) {
-    return handleRouteError(error);
+    return handleRouteError(error, request);
   }
 }
