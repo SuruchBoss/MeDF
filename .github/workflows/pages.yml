@@ -42,14 +42,19 @@ jobs:
 
       - name: Configure Pages
         id: pages
+        # Tries to turn Pages on, which the default GITHUB_TOKEN is usually not
+        # allowed to do. Let it fail softly so the next step can say what to do
+        # about it instead of leaving a bare API error in the log.
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
-          # Tries to turn Pages on. The default GITHUB_TOKEN is usually not
-          # allowed to create a Pages site ("Resource not accessible by
-          # integration"), so the first run still needs a repository admin to
-          # set Settings → Pages → Source = GitHub Actions once. After that,
-          # every run works unattended.
           enablement: true
+
+      - name: Require Pages to be enabled
+        if: steps.pages.outcome != 'success'
+        run: |
+          echo "::error title=ยังไม่ได้เปิด GitHub Pages::ให้ผู้มีสิทธิ์ admin ของ repository ไปที่ Settings → Pages → Build and deployment → Source แล้วเลือก 'GitHub Actions' หนึ่งครั้ง จากนั้นรัน workflow นี้อีกครั้ง (GITHUB_TOKEN ของ Actions ไม่มีสิทธิ์สร้าง Pages site เอง)"
+          exit 1
 
       - name: Build
         run: npm run demo:build
