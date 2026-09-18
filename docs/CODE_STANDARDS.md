@@ -244,36 +244,75 @@ storage.ts            ระบบไฟล์ดิบ — bucket, ตรวจ
 - ย้ายไป object storage = แก้ `storage.ts` + `document-files.ts` เท่านั้น
 - ย้ายไป Postgres = แก้ `db.ts` เท่านั้น
 
+### state ที่อยู่ในหน่วยความจำ — ต้องรู้ว่าพังตอนไหน
+
+`globalThis` มี singleton ได้ แต่ทุกตัวต้องตอบ 2 คำถามนี้ในคอมเมนต์เหนือมัน
+
+1. **ถ้ามีโปรเซสที่สองจะเกิดอะไรขึ้น** — cache ที่ต่างกันคนละโปรเซส เฉย ๆ หรือข้อมูลหาย
+2. **ถ้าคำตอบคือ "ข้อมูลหาย" รูสำหรับเปลี่ยนอยู่ตรงไหน** — interface + setter ไม่ใช่การ import ตรง ๆ
+
+ตัวอย่างที่ทำแล้ว: `src/lib/rate-limit.ts` แยกตัวนับออกจาก `auth.ts` ไว้หลัง `RateLimiter`
+โดย `auth.ts` เป็นคนแปลงคำตอบเป็น `AuthError` — ตัวนับไม่รู้จักคำว่าสมาชิกหรือการล็อกอิน
+เปลี่ยนไปใช้ Redis = เขียน implementation ใหม่ + เรียก `setLoginRateLimiter()` ตอนบูต ไม่แตะ `auth.ts`
+
+**อ่าน–แก้–เขียน ที่ข้ามโปรเซสได้ ต้องอยู่ใน `withFileLock()`**
+และห้ามตัดสินว่าไฟล์เปลี่ยนหรือยังจาก `mtime` — ใช้ digest ของเนื้อไฟล์
+(สองการเขียนใน tick เดียวกันมี `mtime` เท่ากันได้) ดู `docs/ARCHITECTURE.md` หัวข้อ
+"ขอบเขต: กี่โปรเซส กี่เครื่อง" ว่าตอนนี้รันได้แค่ไหน
+
+---
+
 ---
 
 ## 9. ข้อผิดพลาดและความปลอดภัย
 
-1. **ข้อความถึงผู้ใช้เป็นภาษาไทยเสมอ** ทั้งใน API และ UI
+### ข้อความถึงผู้ใช้ต้องผ่าน dictionary เสมอ
 
-   > **ตัดสินใจไว้แล้ว: ยังไม่ทำ i18n layer**
-   > ตอนนี้ข้อความไทยเขียนตรงในโค้ด (59 ไฟล์) ซึ่งเป็นความจงใจ ไม่ใช่หนี้ที่ลืม —
-   > MeDF เป็นผลิตภัณฑ์สำหรับตลาดไทย การใส่ `t('key')` ทุกจุดตอนนี้จะทำให้อ่านโค้ดยากขึ้น
-   > โดยยังไม่มีภาษาที่สองให้รองรับ
-   >
-   > **เมื่อไรถึงจะทำ:** วันที่ตัดสินใจรองรับภาษาที่สองจริง ๆ ทางที่ตั้งใจไว้คือ
-   > ย้ายข้อความออกเป็น `src/lib/i18n/th.ts` ก่อน (เป็น `as const` object ไม่ใช่ enum — ดูข้อ 1)
-   > แล้วค่อยเพิ่มภาษาอื่นทีหลัง จนกว่าจะถึงวันนั้น **อย่าสร้าง wrapper ครึ่ง ๆ กลาง ๆ**
-   > เพราะจะได้ทั้งความยุ่งยากของ i18n และความยุ่งเหยิงของข้อความที่กระจายอยู่สองที่
-2. error ของแต่ละโดเมนใช้คลาสของตัวเอง (`AuthError`, `DocumentError`, `BillingError`, `QuotaError`)
-   พร้อม `status` เพื่อให้ route handler แปลงเป็น HTTP ได้ตรง
-3. **การค้นหาด้วยคีย์ที่มาจากภายนอกต้องใช้ `Object.hasOwn`** ห้ามใช้ `in` หรือ `obj[key]` เปล่า ๆ
+**ห้ามเขียนประโยคที่ผู้ใช้เห็นลงในโค้ดตรง ๆ** ไม่ว่าภาษาไหน
 
-```ts
-// ❌ 'toString' หา Object.prototype.toString เจอ → ผ่านด่านตรวจสิทธิ์
-const feature = FEATURES[key];
-if (!feature) return false;
-
-// ✅
-if (!Object.hasOwn(FEATURES, key)) return false;
+```tsx
+<button>{t('editor.save')}</button>   // ✅ component: useT()
+const t = await getT();               // ✅ ฝั่งเซิร์ฟเวอร์: อ่าน locale จาก cookie/header
 ```
 
-เคยเป็นบั๊กจริงทั้งสองแบบ: `getPlan('__proto__')` คืน `Object.prototype`
-และ `planAllows(plan, 'toString')` คืน `true`
+- ต้นฉบับคือ `src/lib/i18n/th.ts` (`as const`) — `en.ts` ประกาศเป็น `Record<MessageKey, string>`
+  เพิ่ม key ในไทยแล้วลืมภาษาอังกฤษ = **คอมไพล์ไม่ผ่าน** ไม่ใช่ข้อความหายตอนรัน
+- ✅ **บังคับด้วย unit test แล้ว** (`tests/i18n.test.ts`) ทั้งความครบของ key
+  และการห้ามมีตัวอักษรไทยหลุดอยู่นอก dictionary
+- `{name}` คือ placeholder ตัวเดียวที่มี ส่วนตัวเลข วันที่ และเวลาแบบ "3 นาทีที่แล้ว"
+  ใช้ `Intl` ผ่าน `src/lib/i18n/format.ts` ไม่ต้องใส่ในพจนานุกรม
+- **ข้อความที่เป็น *เอกสาร* ไม่ใช่ *อินเทอร์เฟซ*** (เช่นสัญญาตัวอย่างใน `pdf/sample-document.ts`)
+  อยู่ในโมดูลของตัวเอง เพราะแต่ละบรรทัดมีขนาดตัวอักษรและระยะบรรทัดของมันเอง
+  ซึ่ง `t()` ที่คืนสตริงเปล่า ๆ แสดงออกมาไม่ได้
+
+### error
+
+1. error ของแต่ละโดเมนใช้คลาสของตัวเอง (`AuthError`, `DocumentError`, `BillingError`, `QuotaError`)
+   **ถือ key ไม่ใช่ประโยค** — โค้ดใน `lib/` ไม่รู้ว่าผู้อ่านใช้ภาษาอะไร
+   route handler เป็นคนแปลงเป็นข้อความและ HTTP status ที่ `handleRouteError()`
+2. **แยกชนิด error ด้วย `instanceof` ห้ามเทียบ `error.name`**
+
+   ```ts
+   if (error instanceof AuthError) ...                         // ✅
+   if (error instanceof Error && error.name === 'AuthError')   // ❌ production build เปลี่ยนชื่อคลาส
+   ```
+
+   เคยเป็นบั๊กจริง และเป็นชนิดที่แย่ที่สุด: ตอน dev ทำงานถูก ตอน production เงียบ —
+   ตัวนับการล็อกอินผิดไม่เคยเพิ่มเลยบนเครื่องจริง ซึ่งเป็นที่เดียวที่มันมีความหมาย
+   ✅ **บังคับด้วย ESLint แล้ว** (`no-restricted-syntax`)
+3. **การค้นหาด้วยคีย์ที่มาจากภายนอกต้องใช้ `Object.hasOwn`** ห้ามใช้ `in` หรือ `obj[key]` เปล่า ๆ
+
+   ```ts
+   // ❌ 'toString' หา Object.prototype.toString เจอ → ผ่านด่านตรวจสิทธิ์
+   const feature = FEATURES[key];
+   if (!feature) return false;
+
+   // ✅
+   if (!Object.hasOwn(FEATURES, key)) return false;
+   ```
+
+   เคยเป็นบั๊กจริงทั้งสองแบบ: `getPlan('__proto__')` คืน `Object.prototype`
+   และ `planAllows(plan, 'toString')` คืน `true`
 
 ---
 

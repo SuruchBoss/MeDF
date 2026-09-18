@@ -12,6 +12,11 @@ import type { MessageKey, MessageParams } from './i18n';
  *
  * `super(key)` on purpose, so a stack trace and a server log still name
  * something searchable rather than an empty message.
+ *
+ * Each subclass spells its own `name` out as a string. `new.target.name` looks
+ * tidier and is a trap: the production build renames classes, and an empty
+ * `name` in a log is worse than a long one. Nothing branches on `name` — use
+ * `instanceof` for that — but plenty of logs print it.
  */
 export class AppError extends Error {
   readonly key: MessageKey;
@@ -23,7 +28,7 @@ export class AppError extends Error {
     options: { status?: number; params?: MessageParams } = {},
   ) {
     super(key);
-    this.name = new.target.name;
+    this.name = 'AppError';
     this.key = key;
     this.params = options.params;
     this.status = options.status ?? 400;
@@ -31,19 +36,26 @@ export class AppError extends Error {
 }
 
 /** Sign-in, sign-up and session problems. */
-export class AuthError extends AppError {}
+export class AuthError extends AppError {
+  readonly name = 'AuthError';
+}
 
 /** Anything about a document, its file, or its overlay. */
-export class DocumentError extends AppError {}
+export class DocumentError extends AppError {
+  readonly name = 'DocumentError';
+}
 
 /** Subscriptions and payments. */
-export class BillingError extends AppError {}
+export class BillingError extends AppError {
+  readonly name = 'BillingError';
+}
 
 /**
  * A plan limit was reached. Always 402, and always carries a hint, because the
  * answer is the same every time: the member needs to know what to do next.
  */
 export class QuotaError extends AppError {
+  readonly name = 'QuotaError';
   readonly hintKey: MessageKey;
 
   constructor(

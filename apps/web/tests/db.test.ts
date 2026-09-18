@@ -144,7 +144,10 @@ describe('mutate with durable: false', () => {
       { durable: false },
     );
 
-    const deadline = Date.now() + 4000;
+    // Generous on purpose: the suite runs files concurrently and one of them
+    // spawns real processes, so a tight window here would fail on load rather
+    // than on a regression. A throttle that never fires still fails, just late.
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
       if ((await onDisk()).users[0]?.name === 'throttled') break;
       await new Promise((resolve) => setTimeout(resolve, 50));

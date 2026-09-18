@@ -1,20 +1,26 @@
 import 'server-only';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR } from './env';
 import type { BillingInterval, PlanId, PlanStatus } from './plans';
+import { tryFileLockSync, withFileLock } from './file-lock';
 import { ensureStorageDirs } from './storage';
 
 /**
  * A tiny, dependency-free persistence layer.
  *
  * Members, document metadata and billing history live in a single JSON file
- * that is always written atomically (temp file + rename) behind an in-process
- * mutex. Large or frequently written payloads deliberately do *not* live here:
- * uploaded PDFs, images and per-document overlays are separate files under
- * `storage/`.
+ * that is always written atomically (temp file + rename). Large or frequently
+ * written payloads deliberately do *not* live here: uploaded PDFs, images and
+ * per-document overlays are separate files under `storage/`.
+ *
+ * Writes are guarded twice — a promise chain for callers inside this process,
+ * a lock directory for other processes on the machine — so a second server, a
+ * desktop build and a maintenance script can share one data directory without
+ * losing each other's updates. What this does *not* buy is more than one host:
+ * see docs/ARCHITECTURE.md.
  *
  * A write rewrites the whole file, so the one caller that runs at editing
  * speed — the document row an overlay autosave touches — passes
@@ -130,6 +136,11 @@ interface DbState {
   dirty: boolean;
   flushTimer: ReturnType<typeof setTimeout> | null;
   exitHooked: boolean;
+  /**
+   * Digest of the file as this process last read or wrote it, or `null` when
+   * there was no file. Anything else on disk means somebody else wrote.
+   */
+  seen: string | null;
 }
 
 // Survive hot reloads in development so the mutex and cache stay single.
@@ -141,6 +152,7 @@ const state: DbState = (globalState.__medfDb ??= {
   dirty: false,
   flushTimer: null,
   exitHooked: false,
+  seen: null,
 });
 
 /**
@@ -167,35 +179,91 @@ function migrate(db: Database): Database {
   return next;
 }
 
-async function loadFromDisk(): Promise<Database> {
-  await ensureDirs();
+/**
+ * What the file says, as opposed to when it was touched.
+ *
+ * Modification time is the obvious way to notice another process's write and
+ * the wrong one: two writes inside a single filesystem clock tick carry the
+ * same timestamp, and "the file looks unchanged" is precisely the mistake that
+ * drops somebody else's change. The content cannot lie.
+ */
+function digest(raw: string): string {
+  return createHash('sha1').update(raw).digest('hex');
+}
+
+/** The file's text, or `null` when it has not been written yet. */
+async function readRaw(): Promise<string | null> {
   try {
-    const raw = await fs.readFile(DB_FILE, 'utf8');
-    return migrate(JSON.parse(raw) as Database);
+    return await fs.readFile(DB_FILE, 'utf8');
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') {
-      const fresh = emptyDatabase();
-      await writeToDisk(fresh);
-      return fresh;
-    }
-    if (error instanceof SyntaxError) {
-      // Never silently discard member data: park the broken file and stop.
-      const backup = `${DB_FILE}.corrupt-${Date.now()}`;
-      await fs.rename(DB_FILE, backup).catch(() => undefined);
-      throw new Error(
-        `Could not read the database (${DB_FILE}). The old file was kept at ${backup}.`,
-      );
-    }
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
 }
 
+/** Parses the file, parking a damaged one rather than writing over it. */
+async function parseOrPark(raw: string): Promise<Database> {
+  try {
+    return migrate(JSON.parse(raw) as Database);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // Never silently discard member data: park the broken file and stop.
+    const backup = `${DB_FILE}.corrupt-${Date.now()}`;
+    await fs.rename(DB_FILE, backup).catch(() => undefined);
+    throw new Error(
+      `Could not read the database (${DB_FILE}). The old file was kept at ${backup}.`,
+    );
+  }
+}
+
+/**
+ * Brings the cache in line with the file, parsing only when it really changed.
+ *
+ * Deferred changes of our own are dropped when that happens. They are metadata
+ * that `durable: false` already declares reconstructible, and the alternative —
+ * writing our copy over theirs — loses a real change instead of a derived one.
+ */
+async function syncCache(): Promise<Database> {
+  await ensureDirs();
+  const raw = await readRaw();
+
+  if (raw === null) {
+    // Nothing on disk: a first run, or the file was removed under us. Our own
+    // copy is then the better of the two, and the next write puts it back.
+    state.seen = null;
+    return (state.cache ??= emptyDatabase());
+  }
+
+  const stamp = digest(raw);
+  if (state.cache !== null && stamp === state.seen) return state.cache;
+
+  if (state.dirty) {
+    console.warn('[medf] the data file changed underneath; deferred metadata was reloaded');
+  }
+  const db = await parseOrPark(raw);
+  state.cache = db;
+  state.seen = stamp;
+  state.dirty = false;
+  return db;
+}
+
 async function writeToDisk(db: Database): Promise<void> {
   await ensureDirs();
+  const raw = `${JSON.stringify(db, null, 2)}\n`;
   const tmp = `${DB_FILE}.${process.pid}.${randomUUID()}.tmp`;
-  await fs.writeFile(tmp, `${JSON.stringify(db, null, 2)}\n`, 'utf8');
+  await fs.writeFile(tmp, raw, 'utf8');
   await fs.rename(tmp, DB_FILE);
+  state.seen = digest(raw);
+}
+
+/** True when the file no longer holds what this process last saw there. */
+function changedUnderUs(): boolean {
+  if (state.seen === null) return false;
+  try {
+    return digest(fsSync.readFileSync(DB_FILE, 'utf8')) !== state.seen;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -209,13 +277,20 @@ function installExitHook(): void {
   state.exitHooked = true;
   process.on('exit', () => {
     if (!state.dirty || !state.cache) return;
+    // Best effort: the write itself is atomic, so failing to take the lock
+    // costs a lost update of deferred metadata, not a corrupt file.
+    const lock = tryFileLockSync(DB_FILE);
     try {
+      // Another process's change is real; ours is reconstructible metadata.
+      if (changedUnderUs()) return;
       const tmp = `${DB_FILE}.${process.pid}.exit.tmp`;
       fsSync.writeFileSync(tmp, `${JSON.stringify(state.cache, null, 2)}\n`, 'utf8');
       fsSync.renameSync(tmp, DB_FILE);
       state.dirty = false;
     } catch {
       // There is nothing useful left to do while the process is exiting.
+    } finally {
+      lock.release();
     }
   });
   // The loop can drain before the throttle fires; this catches that case with
@@ -243,17 +318,32 @@ function scheduleFlush(): void {
 export async function flushDb(): Promise<void> {
   const run = state.queue.then(async () => {
     if (!state.dirty || !state.cache) return;
-    await writeToDisk(state.cache);
-    state.dirty = false;
+    await ensureDirs();
+    await withFileLock(DB_FILE, async () => {
+      const db = await syncCache();
+      // `syncCache` clears the flag when it pulls another process's write over
+      // our deferred one; there is then nothing of ours left to write.
+      if (!state.dirty) return;
+      await writeToDisk(db);
+      state.dirty = false;
+    });
   });
   state.queue = run.catch(() => undefined);
   await run;
 }
 
-/** Read-only snapshot. Callers must not mutate the result. */
+/**
+ * Read-only snapshot. Callers must not mutate the result.
+ *
+ * The file is checked on every call, so a second process's writes are visible
+ * here. The read is one small file; the parse only happens when the contents
+ * actually moved.
+ */
 export async function readDb(): Promise<Database> {
-  state.cache ??= await loadFromDisk();
-  return state.cache;
+  // Deferred changes of our own are ahead of the file. `flushDb` reconciles
+  // them under the lock, so do not pull the file over them here.
+  if (state.dirty && state.cache) return state.cache;
+  return syncCache();
 }
 
 export interface MutateOptions {
@@ -272,8 +362,12 @@ export interface MutateOptions {
 
 /**
  * Runs `fn` against the database with exclusive access and persists the result.
- * Writes are serialised through a promise chain, so concurrent requests cannot
- * interleave a read-modify-write cycle.
+ *
+ * Two locks, because there are two kinds of competitor. The promise chain
+ * serialises callers inside this process; the lock directory serialises
+ * processes on this machine. Neither alone is enough: an in-process mutex is
+ * invisible to a second `next start`, and a file lock is a poor mutex for the
+ * hundreds of overlapping requests one server handles.
  */
 export async function mutate<T>(
   fn: (db: Database) => T | Promise<T>,
@@ -281,38 +375,45 @@ export async function mutate<T>(
 ): Promise<T> {
   const durable = options.durable ?? true;
   const run = state.queue.then(async () => {
-    const db = await readDb();
-    // A fresh list per collection, so adding or removing a record cannot be
-    // seen half-done. The records themselves are shared, so a callback that
-    // edits one in place and *then* throws would leave the cache ahead of
-    // disk — hence the cache is dropped on the way out of a failed callback.
-    const draft: Database = {
-      ...db,
-      users: [...db.users],
-      documents: [...db.documents],
-      assets: [...db.assets],
-      invoices: [...db.invoices],
-      usage: [...db.usage],
-    };
+    await ensureDirs();
 
-    let result: T;
-    try {
-      result = await fn(draft);
-    } catch (error) {
-      state.cache = null;
-      state.dirty = false;
-      throw error;
-    }
+    // Read, modify and write all happen inside the lock: reading outside it
+    // would let another process write in between and lose one of the two.
+    return withFileLock(DB_FILE, async () => {
+      const db = await syncCache();
 
-    state.cache = draft;
-    if (durable) {
-      await writeToDisk(draft);
-      state.dirty = false;
-    } else {
-      state.dirty = true;
-      scheduleFlush();
-    }
-    return result;
+      // A fresh list per collection, so adding or removing a record cannot be
+      // seen half-done. The records themselves are shared, so a callback that
+      // edits one in place and *then* throws would leave the cache ahead of
+      // disk — hence the cache is dropped on the way out of a failed callback.
+      const draft: Database = {
+        ...db,
+        users: [...db.users],
+        documents: [...db.documents],
+        assets: [...db.assets],
+        invoices: [...db.invoices],
+        usage: [...db.usage],
+      };
+
+      let result: T;
+      try {
+        result = await fn(draft);
+      } catch (error) {
+        state.cache = null;
+        state.dirty = false;
+        throw error;
+      }
+
+      state.cache = draft;
+      if (durable) {
+        await writeToDisk(draft);
+        state.dirty = false;
+      } else {
+        state.dirty = true;
+        scheduleFlush();
+      }
+      return result;
+    });
   });
   // Keep the chain alive even when a caller's callback rejects.
   state.queue = run.catch(() => undefined);

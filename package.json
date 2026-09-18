@@ -24,7 +24,7 @@
     "test": "npm run guard:private && npm run test:unit && npm run test:api && npm run test:ui && npm run test:demo",
     "test:api": "node apps/web/scripts/smoke-test.mjs",
     "test:ui": "node apps/web/scripts/ui-test.mjs",
-    "test:standalone": "node apps/web/scripts/verify-standalone.mjs",
+    "test:standalone": "node apps/web/scripts/prepare-standalone.mjs && node apps/web/scripts/verify-standalone.mjs",
     "test:desktop": "node desktop/scripts/verify-shell.mjs",
     "guard:private": "node scripts/guard-private.mjs",
     "setup:hooks": "node scripts/install-hooks.mjs",

@@ -184,6 +184,28 @@ async function main() {
     });
     check('รหัสผ่านผิดถูกปฏิเสธ', badLogin.status === 401);
 
+    // A key of its own, so blocking it cannot lock Alice out of section [12].
+    const guessing = new Session();
+    async function guess() {
+      return guessing.json('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'bruteforce@example.com', password: 'WrongPassword1' }),
+      });
+    }
+
+    let blocked = null;
+    for (let attempt = 0; attempt < 12 && !blocked; attempt += 1) {
+      const response = await guess();
+      if (response.status === 429) blocked = response;
+    }
+    check('ลองรหัสผ่านผิดซ้ำ ๆ แล้วถูกกั้น (429)', blocked !== null);
+    check(
+      'ข้อความที่กั้นถูกแปลแล้ว ไม่ใช่ชื่อ key',
+      typeof blocked?.body?.error === 'string' && !blocked.body.error.includes('auth.error'),
+      JSON.stringify(blocked?.body),
+    );
+
     // --- Upload -------------------------------------------------------------
     console.log('\n[3] อัปโหลดและอ่านโครงสร้าง PDF');
     async function upload(session, name = 'สัญญาทดสอบ.pdf') {

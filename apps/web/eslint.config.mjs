@@ -11,6 +11,7 @@ const SERVER_ONLY_MODULES = [
   '@/lib/pdf/fonts-node',
   '@/lib/pro',
   '@/lib/quota',
+  '@/lib/rate-limit',
   '@/lib/storage',
 ];
 
@@ -69,6 +70,18 @@ const config = [
         {
           selector: 'TSModuleDeclaration[kind="namespace"]',
           message: 'Node cannot strip namespaces. Use an ES module.',
+        },
+        /**
+         * The production build renames classes, so `error.name` is not the
+         * class name there. This shape once silently switched off the login
+         * rate limiter: it counted failures in development and none in
+         * production, where it is the only thing that matters.
+         */
+        {
+          selector:
+            "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='name'][object.name=/^(error|err|e|cause|reason)$/]",
+          message:
+            'Never branch on an error\u2019s name \u2014 the build renames classes. Use `instanceof`.',
         },
       ],
     },

@@ -19,6 +19,7 @@ import {
   isProduction,
 } from './env';
 import type { PlanId, PlanStatus } from './plans';
+import { loginRateLimiter } from './rate-limit';
 
 const BCRYPT_ROUNDS = 11;
 const secretKey = new TextEncoder().encode(SESSION_SECRET);
@@ -207,48 +208,22 @@ export async function requireUser(): Promise<UserRecord> {
 }
 
 // --- Brute-force protection -------------------------------------------------
-// Deliberately in-memory: this app runs as a single process (server or desktop),
-// and a restart clearing the counters is an acceptable trade for zero setup.
+// The counting lives in `@/lib/rate-limit`, which knows nothing about members
+// or sign-in; these three turn its verdict into the app's own error.
 
-interface Attempt {
-  count: number;
-  firstAt: number;
-  blockedUntil: number;
+export async function checkLoginRate(key: string): Promise<void> {
+  const verdict = await loginRateLimiter().check(key);
+  if (!verdict.blocked) return;
+  throw new AuthError('auth.error.tooManyAttempts', {
+    status: 429,
+    params: { minutes: verdict.retryInMinutes },
+  });
 }
 
-const attemptState = globalThis as typeof globalThis & { __medfAttempts?: Map<string, Attempt> };
-const attempts: Map<string, Attempt> = (attemptState.__medfAttempts ??= new Map());
-
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_ATTEMPTS = 8;
-const BLOCK_MS = 10 * 60 * 1000;
-
-export function checkLoginRate(key: string): void {
-  const entry = attempts.get(key);
-  const now = Date.now();
-  if (!entry) return;
-  if (entry.blockedUntil > now) {
-    const minutes = Math.ceil((entry.blockedUntil - now) / 60000);
-    throw new AuthError('auth.error.tooManyAttempts', { status: 429, params: { minutes } });
-  }
-  if (now - entry.firstAt > WINDOW_MS) attempts.delete(key);
+export async function recordLoginFailure(key: string): Promise<void> {
+  await loginRateLimiter().recordFailure(key);
 }
 
-export function recordLoginFailure(key: string): void {
-  const now = Date.now();
-  const entry = attempts.get(key);
-  if (!entry || now - entry.firstAt > WINDOW_MS) {
-    attempts.set(key, { count: 1, firstAt: now, blockedUntil: 0 });
-    return;
-  }
-  entry.count += 1;
-  if (entry.count >= MAX_ATTEMPTS) {
-    entry.blockedUntil = now + BLOCK_MS;
-    entry.count = 0;
-    entry.firstAt = now;
-  }
-}
-
-export function clearLoginFailures(key: string): void {
-  attempts.delete(key);
+export async function clearLoginFailures(key: string): Promise<void> {
+  await loginRateLimiter().clear(key);
 }
