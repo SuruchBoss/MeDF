@@ -142,6 +142,11 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
 
   return (
     <div className="container-page space-y-6">
+      {/* The page's own heading. Visually the cards below say what this is, so
+          it is hidden — but a page with no h1 leaves a screen reader with
+          nothing to jump to. */}
+      <h1 className="sr-only">{t('docs.heading')}</h1>
+
       {/* Usage summary */}
       <div className="grid gap-4 sm:grid-cols-3">
         <UsageCard
@@ -300,7 +305,7 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
                         elements: document.elementCount,
                       })}
                     </p>
-                    <p className="mt-0.5 text-xs text-ink-400">
+                    <p className="mt-0.5 text-xs text-ink-500">
                       {t('docs.editedAgo', { when: formatRelative(document.updatedAt) })}
                     </p>
                   </div>
@@ -371,7 +376,7 @@ function UsageCard({
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-100">
         <div className={`h-full rounded-full ${tone}`} style={{ width: `${percent}%` }} />
       </div>
-      <p className="mt-2 text-xs text-ink-400">{hint}</p>
+      <p className="mt-2 text-xs text-ink-500">{hint}</p>
     </div>
   );
 }

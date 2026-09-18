@@ -203,4 +203,17 @@ const png = encodePng(renderPixels());
 await writeFile(path.join(outDir, 'icon.png'), png);
 await writeFile(path.join(outDir, 'icon.ico'), encodeIco(png));
 
-console.log(`[make-icon] build/icon.png (${png.length} bytes) และ build/icon.ico`);
+/**
+ * The web app's home-screen icon is the same mark, so it is written from here
+ * rather than drawn a second time. Unlike the two above it is *tracked*: the
+ * web build must not depend on the desktop workspace having been built.
+ */
+const webIcon = path.join(
+  import.meta.dirname, '..', '..', 'apps', 'web', 'src', 'app', 'apple-icon.png',
+);
+await writeFile(webIcon, png);
+
+console.log(
+  `[make-icon] build/icon.png (${png.length} bytes), build/icon.ico ` +
+    'และ apps/web/src/app/apple-icon.png',
+);

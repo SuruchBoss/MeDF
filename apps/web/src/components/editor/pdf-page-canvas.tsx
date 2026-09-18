@@ -93,7 +93,7 @@ export function PdfPageCanvas({
       />
       {!rendered ? (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-white text-xs text-ink-400"
+          className="absolute inset-0 flex items-center justify-center bg-white text-xs text-ink-500"
           aria-hidden="true"
         >
           {t('stage.renderingPage', { number: sourceIndex + 1 })}

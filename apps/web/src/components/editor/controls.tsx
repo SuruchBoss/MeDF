@@ -12,7 +12,7 @@ function round(value: number): number {
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-b border-ink-100 px-4 py-4 last:border-b-0">
-      <h3 className="mb-3 text-[11px] font-bold tracking-wide text-ink-400 uppercase">{title}</h3>
+      <h2 className="mb-3 text-[11px] font-bold tracking-wide text-ink-500 uppercase">{title}</h2>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -83,7 +83,7 @@ export function NumberField({
           }}
         />
         {suffix ? (
-          <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[10px] text-ink-400">
+          <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[10px] text-ink-500">
             {suffix}
           </span>
         ) : null}

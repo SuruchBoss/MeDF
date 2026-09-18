@@ -234,7 +234,7 @@ export function Landing({
                   {t('landing.win.allReleases')}
                 </a>
               </div>
-              <p className="mt-3 text-xs text-ink-400">
+              <p className="mt-3 text-xs text-ink-500">
                 {t('landing.win.buildYourself')}{' '}
                 <code className="rounded bg-ink-100 px-1.5 py-0.5">npm run dist:win</code>
               </p>
@@ -268,7 +268,7 @@ export function Landing({
                     ] as [MessageKey, string][]
                   ).map(([label, value]) => (
                     <div key={label} className="rounded-lg bg-ink-50 px-3 py-2">
-                      <p className="text-ink-400">{t(label)}</p>
+                      <p className="text-ink-500">{t(label)}</p>
                       <p className="font-semibold text-ink-800">{value}</p>
                     </div>
                   ))}

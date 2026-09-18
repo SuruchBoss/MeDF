@@ -92,6 +92,7 @@ export const th = {
   'pricingPage.row.support': 'ซัพพอร์ตแบบ priority',
   'pricingPage.row.uploadSize': 'ขนาดไฟล์ต่อการอัปโหลด',
   'pricingPage.row.watermark': 'ลายน้ำบนไฟล์ที่ export',
+  'pricingPage.plans': 'แพ็กเกจทั้งหมด',
   'pricingPage.title': 'แพ็กเกจและราคา',
   'pricingPage.unsure':
     'ยังไม่แน่ใจ? เริ่มจากแพ็กเกจ Free ได้เลย ไม่ต้องกรอกบัตรเครดิต และอัปเกรดภายหลังได้ทุกเมื่อ',
@@ -205,6 +206,7 @@ export const th = {
   'docs.stored': 'เอกสารที่เก็บไว้',
   'docs.storageUsed': 'ใช้พื้นที่ {size}',
   'docs.summary': '{pages} หน้า · {size} · {elements} องค์ประกอบ',
+  'docs.heading': 'พื้นที่ทำงาน',
   'docs.title': 'เอกสารของฉัน',
   'docs.upgrade': 'อัปเกรด',
   'docs.uploadFailed': 'อัปโหลดไม่สำเร็จ',
@@ -338,6 +340,8 @@ export const th = {
   // --- Editor: toolbar ------------------------------------------------------
   'toolbar.autosaveOn': 'บันทึกอัตโนมัติเปิดอยู่',
   'toolbar.export': 'Export เป็นไฟล์ PDF',
+  'toolbar.exportButton': 'Export PDF',
+  'toolbar.properties': 'แสดง/ซ่อนแถบคุณสมบัติ',
   'toolbar.fitPage': 'พอดีทั้งหน้า',
   'toolbar.fitWidth': 'พอดีความกว้างหน้าจอ',
   'toolbar.hintPlace': 'คลิกบนหน้าเอกสารเพื่อวาง “{element}”',
@@ -413,6 +417,7 @@ export const th = {
   'props.opacity': 'ความโปร่งใส',
   'props.pageNumber': 'หน้า {number}',
   'props.pageSize': 'หน้า {number} · {width} × {height} pt',
+  'props.drawerTitle': 'คุณสมบัติ',
   'props.pageTitle': 'หน้าเอกสาร',
   'props.placeHint':
     'เลือกเครื่องมือจากแถบด้านบน แล้วคลิกบนหน้าเอกสารเพื่อวางองค์ประกอบ หรือคลิกองค์ประกอบที่มีอยู่เพื่อแก้ไขคุณสมบัติ',

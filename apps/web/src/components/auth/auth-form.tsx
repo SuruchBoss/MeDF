@@ -110,14 +110,14 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           <button
             type="button"
             onClick={() => setShowPassword((value) => !value)}
-            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-2 text-ink-400 pointer-coarse:min-h-11 pointer-coarse:min-w-11 hover:bg-ink-100 hover:text-ink-700"
             aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
           >
             <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
           </button>
         </div>
         {isRegister ? (
-          <p className="mt-1.5 text-xs text-ink-400">
+          <p className="mt-1.5 text-xs text-ink-500">
             {t('auth.passwordHint')}
           </p>
         ) : null}

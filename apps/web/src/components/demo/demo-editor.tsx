@@ -243,7 +243,7 @@ export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
             ))}
           </ul>
 
-          <p className="mt-6 text-center text-xs text-ink-400">
+          <p className="mt-6 text-center text-xs text-ink-500">
             {t('demo.warning')}
           </p>
         </div>

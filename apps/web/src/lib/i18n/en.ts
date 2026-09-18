@@ -88,6 +88,7 @@ export const en: Record<MessageKey, string> = {
   'pricingPage.row.support': 'Priority support',
   'pricingPage.row.uploadSize': 'Upload size',
   'pricingPage.row.watermark': 'Watermark on exports',
+  'pricingPage.plans': 'All plans',
   'pricingPage.title': 'Plans and pricing',
   'pricingPage.unsure':
     'Not sure yet? Start on Free — no card needed — and upgrade whenever you like.',
@@ -203,6 +204,7 @@ export const en: Record<MessageKey, string> = {
   'docs.stored': 'Documents stored',
   'docs.storageUsed': '{size} used',
   'docs.summary': '{pages} pages · {size} · {elements} elements',
+  'docs.heading': 'Workspace',
   'docs.title': 'My documents',
   'docs.upgrade': 'Upgrade',
   'docs.uploadFailed': 'Upload failed',
@@ -338,6 +340,8 @@ export const en: Record<MessageKey, string> = {
   // --- Editor: toolbar ------------------------------------------------------
   'toolbar.autosaveOn': 'Autosave is on',
   'toolbar.export': 'Export as PDF',
+  'toolbar.exportButton': 'Export PDF',
+  'toolbar.properties': 'Show or hide the properties panel',
   'toolbar.fitPage': 'Fit whole page',
   'toolbar.fitWidth': 'Fit to width',
   'toolbar.hintPlace': 'Click the page to place “{element}”',
@@ -417,6 +421,7 @@ export const en: Record<MessageKey, string> = {
   'props.opacity': 'Opacity',
   'props.pageNumber': 'Page {number}',
   'props.pageSize': 'Page {number} · {width} × {height} pt',
+  'props.drawerTitle': 'Properties',
   'props.pageTitle': 'Page',
   'props.placeHint':
     'Pick a tool from the bar above and click the page to place an element, or click an existing one to edit it.',

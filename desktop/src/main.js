@@ -19,6 +19,7 @@ const {
   BrowserWindow,
   Menu,
   app,
+  session,
   dialog,
   shell,
   ipcMain,
@@ -212,6 +213,12 @@ function createWindow() {
     if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
+  // Switching language in the app writes a cookie and reloads, so this is
+  // where the menu finds out about it.
+  mainWindow.webContents.on('did-finish-load', () => {
+    void refreshMenu();
+  });
+
   // The self-test navigates the window, so it must not start until the initial
   // load has settled — a second loadURL mid-flight aborts the first.
   if (HEADLESS) {
@@ -245,83 +252,189 @@ function createWindow() {
   });
 }
 
-function buildMenu() {
+/**
+ * The shell's chrome in the same language as the page inside it.
+ *
+ * The web app picks a language from the `medf_locale` cookie and falls back to
+ * the system one; the menu asks the same two sources in the same order. It was
+ * Thai only, which left an English member reading an English page inside a
+ * Thai menu bar.
+ *
+ * These strings are the shell's own — File, Edit, View — and have no
+ * counterpart in the web dictionary, so they live here rather than being
+ * plumbed across the process boundary.
+ */
+const MENU_TEXT = {
+  th: {
+    file: 'ไฟล์',
+    myDocuments: 'เอกสารของฉัน',
+    home: 'หน้าแรก',
+    dataFolder: 'เปิดโฟลเดอร์ข้อมูล',
+    quit: 'ออกจากโปรแกรม',
+    edit: 'แก้ไข',
+    undo: 'ย้อนกลับ',
+    redo: 'ทำซ้ำ',
+    cut: 'ตัด',
+    copy: 'คัดลอก',
+    paste: 'วาง',
+    selectAll: 'เลือกทั้งหมด',
+    view: 'มุมมอง',
+    reload: 'โหลดใหม่',
+    forceReload: 'โหลดใหม่ทั้งหมด',
+    resetZoom: 'ขนาดปกติ',
+    zoomIn: 'ขยาย',
+    zoomOut: 'ย่อ',
+    fullscreen: 'เต็มหน้าจอ',
+    devTools: 'เครื่องมือนักพัฒนา',
+    account: 'บัญชี',
+    billing: 'การสมัครสมาชิก',
+    myAccount: 'บัญชีของฉัน',
+    help: 'ช่วยเหลือ',
+    about: 'เกี่ยวกับ MeDF',
+    aboutTagline: 'โปรแกรมแก้ไข PDF แบบลากวาง ทำงานในเครื่องของคุณเอง',
+    aboutDataFolder: 'โฟลเดอร์ข้อมูล',
+    aboutServer: 'เซิร์ฟเวอร์ภายใน',
+    close: 'ปิด',
+    website: 'เว็บไซต์ MeDF',
+  },
+  en: {
+    file: 'File',
+    myDocuments: 'My documents',
+    home: 'Home',
+    dataFolder: 'Open data folder',
+    quit: 'Quit',
+    edit: 'Edit',
+    undo: 'Undo',
+    redo: 'Redo',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select all',
+    view: 'View',
+    reload: 'Reload',
+    forceReload: 'Force reload',
+    resetZoom: 'Actual size',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    fullscreen: 'Full screen',
+    devTools: 'Developer tools',
+    account: 'Account',
+    billing: 'Subscription',
+    myAccount: 'My account',
+    help: 'Help',
+    about: 'About MeDF',
+    aboutTagline: 'A drag-and-drop PDF editor that runs on your own machine.',
+    aboutDataFolder: 'Data folder',
+    aboutServer: 'Local server',
+    close: 'Close',
+    website: 'MeDF website',
+  },
+};
+
+/** The language the menu is currently built in, so it is rebuilt only on a change. */
+let menuLocale = null;
+
+function systemLocale() {
+  return app.getLocale().toLowerCase().startsWith('th') ? 'th' : 'en';
+}
+
+/** The page's own choice first, exactly as the server reads it. */
+async function preferredLocale() {
+  try {
+    const jar = await session.defaultSession.cookies.get({ name: 'medf_locale' });
+    const value = jar[0]?.value;
+    if (value === 'th' || value === 'en') return value;
+  } catch {
+    /* no session yet; fall through to the system language */
+  }
+  return systemLocale();
+}
+
+/** Rebuilds the menu when the language has changed. Safe to call often. */
+async function refreshMenu() {
+  const locale = await preferredLocale();
+  if (locale === menuLocale) return;
+  menuLocale = locale;
+  buildMenu(MENU_TEXT[locale]);
+}
+
+function buildMenu(text) {
   const go = (route) => () => {
     if (mainWindow && serverUrl) void mainWindow.loadURL(new URL(route, serverUrl.origin).toString());
   };
 
   const template = [
     {
-      label: 'ไฟล์',
+      label: text.file,
       submenu: [
-        { label: 'เอกสารของฉัน', accelerator: 'CmdOrCtrl+Shift+O', click: go('/app') },
-        { label: 'หน้าแรก', click: go('/') },
+        { label: text.myDocuments, accelerator: 'CmdOrCtrl+Shift+O', click: go('/app') },
+        { label: text.home, click: go('/') },
         { type: 'separator' },
         {
-          label: 'เปิดโฟลเดอร์ข้อมูล',
+          label: text.dataFolder,
           click: () => void shell.openPath(dataDir),
         },
         { type: 'separator' },
-        { role: 'quit', label: 'ออกจากโปรแกรม' },
+        { role: 'quit', label: text.quit },
       ],
     },
     {
-      label: 'แก้ไข',
+      label: text.edit,
       submenu: [
-        { role: 'undo', label: 'ย้อนกลับ' },
-        { role: 'redo', label: 'ทำซ้ำ' },
+        { role: 'undo', label: text.undo },
+        { role: 'redo', label: text.redo },
         { type: 'separator' },
-        { role: 'cut', label: 'ตัด' },
-        { role: 'copy', label: 'คัดลอก' },
-        { role: 'paste', label: 'วาง' },
-        { role: 'selectAll', label: 'เลือกทั้งหมด' },
+        { role: 'cut', label: text.cut },
+        { role: 'copy', label: text.copy },
+        { role: 'paste', label: text.paste },
+        { role: 'selectAll', label: text.selectAll },
       ],
     },
     {
-      label: 'มุมมอง',
+      label: text.view,
       submenu: [
-        { role: 'reload', label: 'โหลดใหม่' },
-        { role: 'forceReload', label: 'โหลดใหม่ทั้งหมด' },
+        { role: 'reload', label: text.reload },
+        { role: 'forceReload', label: text.forceReload },
         { type: 'separator' },
-        { role: 'resetZoom', label: 'ขนาดปกติ' },
-        { role: 'zoomIn', label: 'ขยาย' },
-        { role: 'zoomOut', label: 'ย่อ' },
+        { role: 'resetZoom', label: text.resetZoom },
+        { role: 'zoomIn', label: text.zoomIn },
+        { role: 'zoomOut', label: text.zoomOut },
         { type: 'separator' },
-        { role: 'togglefullscreen', label: 'เต็มหน้าจอ' },
-        { role: 'toggleDevTools', label: 'เครื่องมือนักพัฒนา' },
+        { role: 'togglefullscreen', label: text.fullscreen },
+        { role: 'toggleDevTools', label: text.devTools },
       ],
     },
     {
-      label: 'บัญชี',
+      label: text.account,
       submenu: [
-        { label: 'การสมัครสมาชิก', click: go('/app/billing') },
-        { label: 'บัญชีของฉัน', click: go('/app/account') },
+        { label: text.billing, click: go('/app/billing') },
+        { label: text.myAccount, click: go('/app/account') },
       ],
     },
     {
-      label: 'ช่วยเหลือ',
+      label: text.help,
       submenu: [
         {
-          label: 'เกี่ยวกับ MeDF',
+          label: text.about,
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: 'เกี่ยวกับ MeDF',
+              title: text.about,
               message: `MeDF ${app.getVersion()}`,
               detail: [
-                'โปรแกรมแก้ไข PDF แบบลากวาง ทำงานในเครื่องของคุณเอง',
+                text.aboutTagline,
                 '',
-                `โฟลเดอร์ข้อมูล: ${dataDir}`,
-                serverUrl ? `เซิร์ฟเวอร์ภายใน: ${serverUrl.origin}` : '',
+                `${text.aboutDataFolder}: ${dataDir}`,
+                serverUrl ? `${text.aboutServer}: ${serverUrl.origin}` : '',
               ]
                 .filter(Boolean)
                 .join('\n'),
-              buttons: ['ปิด'],
+              buttons: [text.close],
             });
           },
         },
         {
-          label: 'เว็บไซต์ MeDF',
+          label: text.website,
           click: () => void shell.openExternal('https://github.com/SuruchBoss/MeDF'),
         },
       ],
@@ -387,7 +500,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     try {
       await startServer();
-      buildMenu();
+      void refreshMenu();
       await createWindow();
     } catch (error) {
       reportFatal('เริ่มต้น MeDF ไม่สำเร็จ', `${error.message}\n\n${serverLog.join('').slice(-1500)}`);

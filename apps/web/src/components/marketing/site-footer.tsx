@@ -25,7 +25,7 @@ export function SiteFooter({
         </div>
         <div>
           <h3 className="text-sm font-semibold text-ink-900">{t('footer.product')}</h3>
-          <ul className="mt-3 space-y-2 text-sm text-ink-500">
+          <ul className="mt-2 space-y-0.5 text-sm text-ink-500 [&_a]:inline-block [&_a]:py-1.5 pointer-coarse:[&_a]:py-3">
             <li>
               <Link href="/#features" className="hover:text-ink-900">
                 {t('footer.allFeatures')}
@@ -47,7 +47,7 @@ export function SiteFooter({
           <h3 className="text-sm font-semibold text-ink-900">
             {isDemo ? t('footer.openSource') : t('footer.account')}
           </h3>
-          <ul className="mt-3 space-y-2 text-sm text-ink-500">
+          <ul className="mt-2 space-y-0.5 text-sm text-ink-500 [&_a]:inline-block [&_a]:py-1.5 pointer-coarse:[&_a]:py-3">
             {isDemo ? (
               <>
                 <li>
@@ -94,7 +94,7 @@ export function SiteFooter({
         </div>
       </div>
       <div className="border-t border-ink-100">
-        <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-ink-400 sm:flex-row">
+        <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-ink-500 sm:flex-row">
           <p>{t('footer.rights', { year: new Date().getFullYear() })}</p>
           <p>{t('footer.fontLicence')}</p>
         </div>

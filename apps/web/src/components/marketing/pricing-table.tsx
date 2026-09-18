@@ -52,7 +52,7 @@ export function PricingTable({
               type="button"
               onClick={() => setInterval(option)}
               aria-pressed={interval === option}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition pointer-coarse:min-h-11 ${
                 interval === option
                   ? 'bg-brand-600 text-white shadow-sm'
                   : 'text-ink-600 hover:text-ink-900'
@@ -87,7 +87,7 @@ export function PricingTable({
                 </span>
               ) : null}
               {isCurrent ? (
-                <span className="badge absolute -top-3 right-6 bg-emerald-600 text-white">
+                <span className="badge absolute -top-3 right-6 bg-emerald-700 text-white">
                   {t('pricing.currentPlan')}
                 </span>
               ) : null}
@@ -100,7 +100,7 @@ export function PricingTable({
                   {price === 0 ? t('pricing.free') : formatMoney(price, locale)}
                 </span>
                 {price > 0 ? (
-                  <span className="text-sm text-ink-400">
+                  <span className="text-sm text-ink-500">
                     / {interval === 'monthly' ? t('pricing.perMonth') : t('pricing.perYear')}
                   </span>
                 ) : null}
@@ -129,7 +129,7 @@ export function PricingTable({
                       {t('pricing.onThisPlan')}
                     </button>
                   ) : planId === 'free' ? (
-                    <p className="text-center text-xs text-ink-400">
+                    <p className="text-center text-xs text-ink-500">
                       {t('pricing.downgradeNote')}
                     </p>
                   ) : (
@@ -175,7 +175,7 @@ export function PricingTable({
         })}
       </div>
 
-      <p className="mt-6 text-center text-xs text-ink-400">
+      <p className="mt-6 text-center text-xs text-ink-500">
         {demo ? t('pricing.demoNote') : t('pricing.taxNote')}
       </p>
     </div>

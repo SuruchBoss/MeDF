@@ -101,7 +101,7 @@ export default async function AdminPage() {
         </table>
       </div>
 
-      <p className="text-xs text-ink-400">
+      <p className="text-xs text-ink-500">
         {t('admin.storageNote', { size: formatBytes(storage) })}
       </p>
     </div>

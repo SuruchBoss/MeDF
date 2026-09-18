@@ -40,6 +40,8 @@ export interface ToolbarProps {
   onRename: () => void;
   onFit: () => void;
   fitMode: 'page' | 'width';
+  /** Opens the properties drawer. Only shown where the panel is not a column. */
+  onToggleProperties: () => void;
   backHref?: string;
   backLabel?: string;
 }
@@ -62,6 +64,7 @@ export function Toolbar({
   onRename,
   onFit,
   fitMode,
+  onToggleProperties,
   backHref = '/app',
   backLabel,
 }: ToolbarProps) {
@@ -83,23 +86,27 @@ export function Toolbar({
       <div className="flex h-14 items-center gap-3 px-3">
         <Link
           href={backHref}
-          className="btn-ghost btn-sm"
+          className="btn-ghost btn-sm shrink-0"
           title={backLabel ?? t('appnav.documents')}
         >
           <Icon name="chevron-left" size={17} />
           <span className="hidden sm:inline">{backLabel ?? t('appnav.documents')}</span>
         </Link>
 
-        <div className="flex min-w-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onRename}
-            className="max-w-[16rem] truncate rounded-lg px-2 py-1 text-sm font-semibold text-ink-900 hover:bg-ink-100"
-            title={t('toolbar.renameHint')}
-          >
-            {title}
-          </button>
-          <span className="hidden text-xs text-ink-400 sm:inline">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {/* The document's name is the editor's heading, and the page had
+              none. It stays a button, because clicking it renames. */}
+          <h1 className="min-w-0">
+            <button
+              type="button"
+              onClick={onRename}
+              className="block max-w-[16rem] truncate rounded-lg px-2 py-1 text-sm font-semibold text-ink-900 hover:bg-ink-100"
+              title={t('toolbar.renameHint')}
+            >
+              {title}
+            </button>
+          </h1>
+          <span className="hidden text-xs text-ink-500 sm:inline">
             {saving
               ? t('toolbar.saving')
               : dirty
@@ -110,7 +117,7 @@ export function Toolbar({
           </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-1">
           <button
             type="button"
             className="btn-ghost btn-sm"
@@ -130,11 +137,11 @@ export function Toolbar({
             <Icon name="redo" size={17} />
           </button>
 
-          <span className="mx-1 h-6 w-px bg-ink-200" />
+          <span className="mx-1 hidden h-6 w-px bg-ink-200 md:block" />
 
           <button
             type="button"
-            className="btn-ghost btn-sm"
+            className="btn-ghost btn-sm hidden md:inline-flex"
             onClick={() => dispatch({ type: 'zoom', zoom: zoom - 0.1 })}
             title={t('toolbar.zoomOut')}
           >
@@ -143,25 +150,25 @@ export function Toolbar({
           <button
             type="button"
             onClick={onFit}
-            className="min-w-[3.5rem] rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-100"
+            className="hidden min-w-[3.5rem] rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-100 md:block"
             title={fitMode === 'page' ? t('toolbar.fitWidth') : t('toolbar.fitPage')}
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             type="button"
-            className="btn-ghost btn-sm"
+            className="btn-ghost btn-sm hidden md:inline-flex"
             onClick={() => dispatch({ type: 'zoom', zoom: zoom + 0.1 })}
             title={t('toolbar.zoomIn')}
           >
             <Icon name="zoom-in" size={17} />
           </button>
 
-          <span className="mx-1 h-6 w-px bg-ink-200" />
+          <span className="mx-1 hidden h-6 w-px bg-ink-200 sm:block" />
 
           <button
             type="button"
-            className="btn-secondary btn-sm"
+            className="btn-secondary btn-sm hidden sm:inline-flex"
             onClick={onSave}
             disabled={saving || !dirty}
             title={t('toolbar.save')}
@@ -171,13 +178,22 @@ export function Toolbar({
           </button>
           <button
             type="button"
+            className="btn-ghost btn-sm lg:hidden"
+            onClick={onToggleProperties}
+            title={t('toolbar.properties')}
+            aria-label={t('toolbar.properties')}
+          >
+            <Icon name="settings" size={17} />
+          </button>
+          <button
+            type="button"
             className="btn-primary btn-sm"
             onClick={onExport}
             disabled={exporting}
             title={t('toolbar.export')}
           >
             {exporting ? <Spinner size={15} /> : <Icon name="download" size={15} />}
-            Export PDF
+            <span className="hidden sm:inline">{t('toolbar.exportButton')}</span>
           </button>
         </div>
       </div>
@@ -189,7 +205,7 @@ export function Toolbar({
             type="button"
             onClick={() => selectTool(item.tool)}
             aria-pressed={tool === item.tool}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition pointer-coarse:min-h-11 pointer-coarse:px-3.5 ${
               tool === item.tool
                 ? 'bg-brand-600 text-white'
                 : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
@@ -199,12 +215,12 @@ export function Toolbar({
             }
           >
             <Icon name={item.icon} size={16} />
-            <span className="hidden md:inline">{item.label}</span>
+            <span className="hidden xl:inline">{t(item.label)}</span>
           </button>
         ))}
 
-        <span className="mx-1 h-5 w-px shrink-0 bg-ink-200" />
-        <span className="shrink-0 text-xs text-ink-400">
+        <span className="mx-1 hidden h-5 w-px shrink-0 bg-ink-200 xl:block" />
+        <span className="hidden min-w-0 truncate text-xs text-ink-500 xl:inline">
           {tool === 'select'
             ? t('toolbar.hintSelect')
             : t('toolbar.hintPlace', { element: t(ELEMENT_LABELS[tool]) })}

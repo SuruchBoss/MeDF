@@ -183,7 +183,7 @@ function ImageProperties({ element, dispatch }: PanelProps<ImageElement>) {
         <Icon name="grid" size={14} />
         {t('ep.resetRatio')}
       </button>
-      <p className="text-[11px] text-ink-400">{t('ep.imageHint')}</p>
+      <p className="text-[11px] text-ink-500">{t('ep.imageHint')}</p>
     </Section>
   );
 }
@@ -292,7 +292,7 @@ function LineProperties({ element, dispatch }: PanelProps<LineElement>) {
           <span className="text-[10px]">{t('ep.arrowEndLabel')}</span>
         </ToggleButton>
       </Row>
-      <p className="text-[11px] text-ink-400">{t('ep.lineHint')}</p>
+      <p className="text-[11px] text-ink-500">{t('ep.lineHint')}</p>
     </Section>
   );
 }
@@ -318,7 +318,7 @@ function DrawProperties({ element, dispatch }: PanelProps<DrawElement>) {
         step={0.2}
         onChange={(strokeWidth) => patch({ strokeWidth })}
       />
-      <p className="text-[11px] text-ink-400">
+      <p className="text-[11px] text-ink-500">
         {t('ep.drawStrokes', { count: element.strokes.length })}
       </p>
     </Section>
@@ -338,7 +338,7 @@ function HighlightProperties({ element, dispatch }: PanelProps<HighlightElement>
           onChange={(color) => patch({ color: color ?? '#fde047' })}
         />
       </Row>
-      <p className="text-[11px] text-ink-400">{t('ep.highlightHint')}</p>
+      <p className="text-[11px] text-ink-500">{t('ep.highlightHint')}</p>
     </Section>
   );
 }

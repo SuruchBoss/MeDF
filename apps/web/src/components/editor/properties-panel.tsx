@@ -20,6 +20,11 @@ interface PropertiesPanelProps {
   page: PageState | undefined;
   pageIndex: number;
   dispatch: Dispatch<EditorAction>;
+  /** Drawer state. Ignored from `lg` up, where the panel is always a column. */
+  open: boolean;
+  /** True only when this is a *closed drawer*: off screen and out of reach. */
+  hidden: boolean;
+  onClose: () => void;
 }
 
 export function PropertiesPanel({
@@ -28,6 +33,9 @@ export function PropertiesPanel({
   page,
   pageIndex,
   dispatch,
+  open,
+  hidden,
+  onClose,
 }: PropertiesPanelProps) {
   const t = useT();
   const single = selection.length === 1 ? selection[0] : null;
@@ -53,7 +61,33 @@ export function PropertiesPanel({
   }
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-ink-200 bg-white">
+    <aside
+      /**
+       * A column beside the page on a wide screen, a drawer over it on a
+       * narrow one. `fixed` is what makes the difference: it takes the panel
+       * out of the row, so the page stage gets the whole width instead of the
+       * 100px that was left after a 288px panel on a phone.
+       */
+      className={`flex w-72 shrink-0 flex-col overflow-y-auto border-l border-ink-200 bg-white transition-transform max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-[min(20rem,88vw)] max-lg:shadow-2xl ${
+        open ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'
+      }`}
+      // A drawer that has slid off the edge is still in the tab order and
+      // still read aloud unless it is said to be inert.
+      inert={hidden || undefined}
+    >
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white px-3 py-2 lg:hidden">
+        <p className="text-[11px] font-bold tracking-wide text-ink-500 uppercase">
+          {t('props.drawerTitle')}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn-ghost btn-sm"
+          aria-label={t('common.close')}
+        >
+          <Icon name="x" size={16} />
+        </button>
+      </div>
       {selection.length === 0 ? (
         <Section title={t('props.pageTitle')}>
           <p className="text-sm text-ink-600">
@@ -66,7 +100,7 @@ export function PropertiesPanel({
               : t('props.pageNumber', { number: pageIndex + 1 })}
           </p>
           <p className="text-xs leading-relaxed text-ink-500">{t('props.placeHint')}</p>
-          <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-500">
+          <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-500 max-lg:hidden">
             <p className="font-semibold text-ink-700">{t('props.shortcutsTitle')}</p>
             <ul className="mt-1.5 space-y-1">
               {(
@@ -251,7 +285,7 @@ export function PropertiesPanel({
 
       <Section title={t('props.elementsOnPage', { count: pageElements.length })}>
         {pageElements.length === 0 ? (
-          <p className="text-xs text-ink-400">{t('props.noElements')}</p>
+          <p className="text-xs text-ink-500">{t('props.noElements')}</p>
         ) : (
           <ul className="space-y-1">
             {[...pageElements].reverse().map((element) => (

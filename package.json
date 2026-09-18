@@ -21,7 +21,7 @@
     "desktop:build": "npm run build --workspace medf-desktop",
     "dist:win": "npm run dist:win --workspace medf-desktop",
     "dist:win:portable": "npm run dist:win:portable --workspace medf-desktop",
-    "test": "npm run guard:private && npm run test:unit && npm run test:api && npm run test:ui && npm run test:demo",
+    "test": "npm run guard:private && npm run test:unit && npm run test:api && npm run test:ui && npm run test:ux && npm run test:demo",
     "test:api": "node apps/web/scripts/smoke-test.mjs",
     "test:ui": "node apps/web/scripts/ui-test.mjs",
     "test:standalone": "node apps/web/scripts/prepare-standalone.mjs && node apps/web/scripts/verify-standalone.mjs",
@@ -33,7 +33,9 @@
     "demo:build": "npm run build --workspace medf-demo",
     "test:demo": "node apps/web/scripts/demo-test.mjs",
     "test:static": "node apps/demo/scripts/static-test.mjs",
-    "test:unit": "npm run test:unit --workspace medf-web"
+    "test:unit": "npm run test:unit --workspace medf-web",
+    "test:ux": "node apps/web/scripts/ux-audit.mjs --quick",
+    "audit:ux": "node apps/web/scripts/ux-audit.mjs"
   },
   "devDependencies": {
     "playwright": "1.56.1",

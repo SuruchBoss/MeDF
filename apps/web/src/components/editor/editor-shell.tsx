@@ -5,6 +5,7 @@ import { Icon, Spinner } from '@/components/icons';
 import { useDialog } from '@/components/ui/dialog';
 import { useT } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/client/fetcher';
+import { useMediaQuery } from '@/lib/client/use-media-query';
 import type { OverlayDoc } from '@/lib/editor-types';
 import type { PlanId } from '@/lib/plans';
 import type { EditorBackend } from './backend';
@@ -63,6 +64,9 @@ export function EditorShell({
     backend.notice ? { tone: 'info', message: backend.notice } : null,
   );
   const [signatureOpen, setSignatureOpen] = useState(false);
+  // A column from `lg` up, so this only decides anything on a narrow window.
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const narrow = useMediaQuery('(max-width: 1023px)');
 
   // The scrolling viewport is kept in state, not a ref: the page observer needs
   // it as its root, and a ref read during render is null on the first pass.
@@ -242,6 +246,7 @@ export function EditorShell({
         backLabel={backLabel}
         onFit={toggleFit}
         fitMode={fitMode}
+        onToggleProperties={() => setPropertiesOpen((current) => !current)}
       />
 
       <input
@@ -346,12 +351,24 @@ export function EditorShell({
           )}
         </div>
 
+        {propertiesOpen ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-30 bg-ink-950/30 lg:hidden"
+            aria-label={t('common.close')}
+            onClick={() => setPropertiesOpen(false)}
+          />
+        ) : null}
+
         <PropertiesPanel
           selection={selection}
           pageElements={pageElements}
           page={activePageState}
           pageIndex={state.view.activePage}
           dispatch={dispatch}
+          open={propertiesOpen}
+          hidden={narrow && !propertiesOpen}
+          onClose={() => setPropertiesOpen(false)}
         />
       </div>
 

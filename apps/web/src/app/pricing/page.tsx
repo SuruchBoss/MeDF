@@ -83,6 +83,9 @@ export default async function PricingPage() {
 
         <section className="py-14">
           <div className="container-page">
+            {/* The cards inside are h3. Without this the page would run h1 → h3,
+                which reads to a screen reader as a missing level. */}
+            <h2 className="sr-only">{t('pricingPage.plans')}</h2>
             <PricingTable signedIn={Boolean(user)} currentPlan={user?.plan} />
           </div>
         </section>

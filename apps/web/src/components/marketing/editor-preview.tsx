@@ -29,7 +29,7 @@ export function EditorPreview() {
               <span
                 key={name}
                 className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                  index === 1 ? 'bg-brand-600 text-white' : 'text-ink-400'
+                  index === 1 ? 'bg-brand-600 text-white' : 'text-ink-500'
                 }`}
               >
                 <Icon name={name} size={17} />
@@ -70,7 +70,7 @@ export function EditorPreview() {
             </div>
 
             {/* An image element */}
-            <div className="absolute top-[57%] right-[10%] flex h-14 w-20 items-center justify-center rounded-md border border-dashed border-ink-300 bg-ink-50 text-ink-400">
+            <div className="absolute top-[57%] right-[10%] flex h-14 w-20 items-center justify-center rounded-md border border-dashed border-ink-300 bg-ink-50 text-ink-500">
               <Icon name="image" size={20} />
             </div>
 
@@ -97,11 +97,11 @@ export function EditorPreview() {
           <p className="text-[11px] font-semibold text-ink-500">{t('preview.properties')}</p>
           <div className="mt-2 space-y-2">
             <div className="rounded-lg border border-ink-200 px-2 py-1.5">
-              <p className="text-[10px] text-ink-400">{t('preview.fontSize')}</p>
+              <p className="text-[10px] text-ink-500">{t('preview.fontSize')}</p>
               <p className="text-xs font-semibold text-ink-800">16 pt</p>
             </div>
             <div className="rounded-lg border border-ink-200 px-2 py-1.5">
-              <p className="text-[10px] text-ink-400">{t('preview.position')}</p>
+              <p className="text-[10px] text-ink-500">{t('preview.position')}</p>
               <p className="text-xs font-semibold text-ink-800">72 · 318</p>
             </div>
             <div className="flex gap-1">

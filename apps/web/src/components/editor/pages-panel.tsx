@@ -33,7 +33,7 @@ function PagesPanelInner({
   return (
     <aside className="hidden w-40 shrink-0 flex-col overflow-y-auto border-r border-ink-200 bg-white lg:flex">
       <div className="sticky top-0 z-10 border-b border-ink-100 bg-white px-3 py-2.5">
-        <p className="text-[11px] font-bold tracking-wide text-ink-400 uppercase">
+        <p className="text-[11px] font-bold tracking-wide text-ink-500 uppercase">
           {t('pages.title', {
             visible: pages.filter((page) => !page.hidden).length,
             total: pages.length,

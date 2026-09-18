@@ -1,8 +1,15 @@
-import type { SVGProps } from 'react';
+'use client';
+
+import { type SVGProps, useId } from 'react';
 
 /**
  * A single inline icon set (Lucide-style 24px stroke geometry), so the app
  * ships no icon dependency and stays fully offline-capable.
+ *
+ * `'use client'` is here for `LogoMark`: its gradient needs an id unique to
+ * each instance, and `useId` is the only way to get one that the server and
+ * the client agree on. Everything here is markup, so the cost is a few hundred
+ * bytes in the bundle and nothing else.
  */
 
 export type IconName =
@@ -143,9 +150,11 @@ export function Icon({ name, size = 18, ...props }: IconProps) {
  * web and the installed app share one identity.
  */
 export function LogoMark({ size = 32, className = '' }: { size?: number; className?: string }) {
-  // Fixed gradient ids: this renders in Server Components too, where `useId`
-  // is unavailable. Several marks on one page therefore repeat the definition,
-  // which resolves to an identical gradient and looks the same.
+  // One id per instance. A fixed one looked harmless — two marks on a page
+  // define the same gradient — but it is invalid HTML, and `url(#id)` points
+  // at whichever element is first: unmount the header and the footer's logo
+  // loses its fill.
+  const gradient = useId();
   return (
     <svg
       width={size}
@@ -156,7 +165,7 @@ export function LogoMark({ size = 32, className = '' }: { size?: number; classNa
       aria-label="MeDF"
     >
       <defs>
-        <linearGradient id="medf-logo-tile" x1="2" y1="0" x2="30" y2="32">
+        <linearGradient id={gradient} x1="2" y1="0" x2="30" y2="32">
           <stop stopColor="#4f46e5" />
           <stop offset="0.5" stopColor="#7c3aed" />
           <stop offset="1" stopColor="#c026d3" />
@@ -164,7 +173,7 @@ export function LogoMark({ size = 32, className = '' }: { size?: number; classNa
       </defs>
 
       {/* App tile */}
-      <rect width="32" height="32" rx="8.5" fill="url(#medf-logo-tile)" />
+      <rect width="32" height="32" rx="8.5" fill={`url(#${gradient})`} />
 
       {/* The document: a sheet with its top-right corner folded over */}
       <path d="M6.4 8.4A2.8 2.8 0 0 1 9.2 5.6h7.4l5.6 5.6v9.2A2.8 2.8 0 0 1 19.4 23.2H9.2A2.8 2.8 0 0 1 6.4 20.4z" fill="#fff" />

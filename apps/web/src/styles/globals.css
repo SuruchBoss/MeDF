@@ -112,9 +112,39 @@ body {
     @apply px-3 py-1.5 text-xs;
   }
 
+  /**
+   * A finger is not a mouse pointer.
+   *
+   * 24px is what WCAG 2.2 AA requires and everything here already cleared it;
+   * 44px is what a thumb actually wants, and most of these controls sat at 36
+   * to 42. Height only, and only where the pointer is coarse, so no layout on
+   * a desktop moves.
+   */
+  @media (pointer: coarse) {
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-ghost,
+    .btn-danger,
+    .field {
+      min-height: 44px;
+    }
+    /* Square off the icon-only buttons; anything with a label is wider already. */
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-ghost,
+    .btn-danger {
+      min-width: 44px;
+    }
+    .btn-sm {
+      @apply px-3 py-2;
+    }
+  }
+
   .field {
     @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900
-      placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
+      placeholder:text-ink-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
   }
   .label {
     @apply mb-1.5 block text-sm font-medium text-ink-700;

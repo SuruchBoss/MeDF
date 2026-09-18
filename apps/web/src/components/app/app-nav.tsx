@@ -35,7 +35,7 @@ export function AppNav({ user }: { user: PublicUser }) {
 
   return (
     <header className="border-b border-ink-200 bg-white">
-      <div className="container-page flex h-16 items-center gap-6">
+      <div className="container-page flex h-16 items-center gap-3 sm:gap-6">
         <Link href="/" className="text-ink-900">
           <Logo />
         </Link>
@@ -47,14 +47,17 @@ export function AppNav({ user }: { user: PublicUser }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                title={t(item.label)}
+                aria-label={t(item.label)}
+                aria-current={active ? 'page' : undefined}
+                className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition ${
                   active
                     ? 'bg-brand-50 text-brand-700'
                     : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
                 }`}
               >
                 <Icon name={item.icon} size={16} />
-                {t(item.label)}
+                <span className="hidden sm:inline">{t(item.label)}</span>
               </Link>
             );
           })}

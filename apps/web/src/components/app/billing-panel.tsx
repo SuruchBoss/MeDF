@@ -273,7 +273,7 @@ export function BillingPanel({
               />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink-900">
-                  {feature.label}
+                  {t(feature.label)}
                   {feature.source === 'private' ? (
                     <span className="badge bg-brand-50 text-brand-700">
                       {t('billing.featureAddon')}
@@ -283,9 +283,9 @@ export function BillingPanel({
                     <span className="badge bg-ink-100 text-ink-600">{PLANS[feature.plan].name}</span>
                   ) : null}
                 </p>
-                <p className="mt-0.5 text-xs text-ink-500">{feature.description}</p>
+                <p className="mt-0.5 text-xs text-ink-500">{t(feature.description)}</p>
               </div>
-              <span className="shrink-0 text-xs text-ink-400">
+              <span className="shrink-0 text-xs text-ink-500">
                 {feature.available
                   ? t('billing.featureAvailable')
                   : feature.reason === 'not_installed'
