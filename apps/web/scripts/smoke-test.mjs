@@ -74,6 +74,11 @@ class Session {
   }
 }
 
+/** A plain request with no cookie jar, for pages that need no session. */
+function anonymousFetch(url, init) {
+  return fetch(`${BASE}${url}`, { ...init, redirect: 'manual' });
+}
+
 async function waitForServer(timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -152,6 +157,14 @@ async function main() {
     check('GET /api/health ตอบ ok', health.ok === true);
     check('เริ่มต้นด้วยฐานข้อมูลว่าง', health.members === 0, JSON.stringify(health));
     check('ระบบชำระเงินอยู่ในโหมด sandbox', health.billing === 'sandbox');
+
+    // A missing page must be the app's own Thai 404, not Next's English
+    // default — and it must still answer 404 so crawlers agree.
+    const missing = await anonymousFetch('/no-such-page');
+    const missingHtml = await missing.text();
+    check('หน้าที่ไม่มีอยู่ตอบสถานะ 404', missing.status === 404);
+    check('หน้า 404 เป็นหน้าของแอปเอง', missingHtml.includes('ไม่พบหน้าที่ต้องการ'));
+    check('หน้า 404 มีทางกลับ', missingHtml.includes('กลับหน้าแรก'));
 
     // --- Auth ---------------------------------------------------------------
     console.log('\n[2] ระบบสมาชิก');
