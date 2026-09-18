@@ -145,15 +145,31 @@ try {
   check('ลากไฟล์มาวางในกรอบอัปโหลดได้', true);
 
   // Remove the dropped copy so the rest of the test works on one document.
-  await page.evaluate(() => {
-    window.confirm = () => true;
-  });
+  // The confirmation is the app's own <dialog> rather than window.confirm, so
+  // the test drives it for real — including the path where the member backs out.
+  const countDocuments = () => page.locator('a[href^="/app/editor/"]').count();
+
   await page.locator('button[title="ลบ"]').first().click();
+  const confirmDialog = page.locator('dialog[open]');
+  await confirmDialog.waitFor({ state: 'visible', timeout: 15_000 });
+  check('กดลบแล้วเจอกล่องยืนยันของแอปเอง', true);
+  check(
+    'กล่องยืนยันบอกว่าลบแล้วกู้คืนไม่ได้',
+    (await confirmDialog.textContent())?.includes('กู้คืนไม่ได้') === true,
+  );
+
+  await page.keyboard.press('Escape');
+  await confirmDialog.waitFor({ state: 'hidden', timeout: 10_000 });
+  check('กด Escape แล้วยกเลิกการลบ', (await countDocuments()) === 2);
+
+  await page.locator('button[title="ลบ"]').first().click();
+  await confirmDialog.waitFor({ state: 'visible', timeout: 15_000 });
+  await confirmDialog.getByRole('button', { name: 'ลบถาวร' }).click();
   await page.waitForFunction(
     () => document.querySelectorAll('a[href^="/app/editor/"]').length === 1,
     { timeout: 30_000 },
   );
-  check('ลบเอกสารจากหน้ารายการได้', true);
+  check('ยืนยันแล้วลบเอกสารจากหน้ารายการได้', true);
 
   // --- Open the editor ----------------------------------------------------
   console.log('\n[3] เปิดหน้าแก้ไขและเรนเดอร์ PDF');

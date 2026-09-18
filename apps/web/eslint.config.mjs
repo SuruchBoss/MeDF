@@ -21,6 +21,27 @@ const config = [
        * testing. Plain fields, `as const` objects and ES modules cover every
        * case we have.
        */
+      /**
+       * The native modals cannot be styled or translated, block the main
+       * thread while they are open, and are invisible to the browser tests.
+       * `useDialog()` from `@/components/ui/dialog` replaces all three.
+       */
+      'no-restricted-globals': [
+        'error',
+        ...['alert', 'confirm', 'prompt'].map((name) => ({
+          name,
+          message: `ใช้ useDialog() จาก @/components/ui/dialog แทน ${name}()`,
+        })),
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['alert', 'confirm', 'prompt'].map((property) => ({
+          object: 'window',
+          property,
+          message: `ใช้ useDialog() จาก @/components/ui/dialog แทน window.${property}()`,
+        })),
+      ],
+
       'no-restricted-syntax': [
         'error',
         {

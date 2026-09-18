@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
 import { PricingTable } from '@/components/marketing/pricing-table';
+import { useDialog } from '@/components/ui/dialog';
 import { ApiError, apiFetch } from '@/lib/client/fetcher';
 import type { PublicUser } from '@/lib/auth';
 import type { InvoiceRecord } from '@/lib/db';
@@ -38,6 +39,7 @@ export function BillingPanel({
   features: FeatureAvailability[];
 }) {
   const router = useRouter();
+  const dialog = useDialog();
   const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
   const [busyAction, setBusyAction] = useState<'cancel' | 'resume' | null>(null);
   const [notice, setNotice] = useState<{ tone: 'error' | 'info'; message: string } | null>(null);
@@ -74,11 +76,16 @@ export function BillingPanel({
   }
 
   async function runAction(action: 'cancel' | 'resume') {
-    if (
-      action === 'cancel' &&
-      !window.confirm('ยกเลิกการสมัครสมาชิกหรือไม่? คุณจะยังใช้งานได้จนถึงสิ้นรอบบิลที่ชำระไว้')
-    ) {
-      return;
+    if (action === 'cancel') {
+      const confirmed = await dialog.confirm({
+        title: 'ยกเลิกการสมัครสมาชิกหรือไม่?',
+        message:
+          'คุณจะยังใช้งานแพ็กเกจปัจจุบันได้จนถึงสิ้นรอบบิลที่ชำระไว้ หลังจากนั้นบัญชีจะกลับไปเป็นแพ็กเกจ Free',
+        confirmLabel: 'ยกเลิกการสมัคร',
+        cancelLabel: 'ใช้ต่อ',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
     }
     setBusyAction(action);
     setNotice(null);
@@ -323,6 +330,8 @@ export function BillingPanel({
           </div>
         )}
       </section>
+
+      {dialog.element}
     </div>
   );
 }

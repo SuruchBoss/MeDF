@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { Icon, Spinner } from '@/components/icons';
+import { useDialog } from '@/components/ui/dialog';
 import { ApiError } from '@/lib/client/fetcher';
 import type { OverlayDoc } from '@/lib/editor-types';
 import type { PlanId } from '@/lib/plans';
@@ -62,6 +63,7 @@ export function EditorShell({
   backHref,
   backLabel,
 }: EditorShellProps) {
+  const dialog = useDialog();
   const [state, dispatch] = useReducer(editorReducer, overlay, createInitialState);
   const [title, setTitle] = useState(initialTitle);
   const [saving, setSaving] = useState(false);
@@ -384,7 +386,12 @@ export function EditorShell({
   }
 
   async function handleRename() {
-    const next = window.prompt('ตั้งชื่อเอกสาร', title);
+    const next = await dialog.prompt({
+      title: 'ตั้งชื่อเอกสาร',
+      label: 'ชื่อเอกสาร',
+      defaultValue: title,
+      confirmLabel: 'บันทึกชื่อ',
+    });
     if (!next || next.trim() === '' || next === title) return;
     try {
       const result = await backend.rename(next.trim());
@@ -560,6 +567,8 @@ export function EditorShell({
           }}
         />
       ) : null}
+
+      {dialog.element}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useRef, useState } from 'react';
 import { Icon, Spinner } from '@/components/icons';
+import { useDialog } from '@/components/ui/dialog';
 import { ApiError, apiFetch, uploadWithProgress } from '@/lib/client/fetcher';
 import type { DocumentRecord } from '@/lib/db';
 import { formatBytes, formatRelative } from '@/lib/format';
@@ -16,6 +17,7 @@ interface DocumentManagerProps {
 }
 
 export function DocumentManager({ initialDocuments, initialUsage, plan }: DocumentManagerProps) {
+  const dialog = useDialog();
   const [documents, setDocuments] = useState(initialDocuments);
   const [usage, setUsage] = useState(initialUsage);
   const [dragging, setDragging] = useState(false);
@@ -75,7 +77,13 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
   );
 
   async function remove(document: DocumentRecord) {
-    if (!window.confirm(`ลบ “${document.title}” ถาวรหรือไม่? ไฟล์ต้นฉบับจะถูกลบด้วย`)) return;
+    const confirmed = await dialog.confirm({
+      title: `ลบ “${document.title}” ถาวรหรือไม่?`,
+      message: 'ไฟล์ต้นฉบับและการแก้ไขทั้งหมดจะถูกลบไปด้วย และกู้คืนไม่ได้',
+      confirmLabel: 'ลบถาวร',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setBusyId(document.id);
     try {
       await apiFetch(`/api/documents/${document.id}`, { method: 'DELETE' });
@@ -103,7 +111,12 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
   }
 
   async function rename(document: DocumentRecord) {
-    const title = window.prompt('ตั้งชื่อเอกสารใหม่', document.title);
+    const title = await dialog.prompt({
+      title: 'เปลี่ยนชื่อเอกสาร',
+      label: 'ชื่อใหม่',
+      defaultValue: document.title,
+      confirmLabel: 'บันทึกชื่อ',
+    });
     if (!title || title === document.title) return;
     setBusyId(document.id);
     try {
@@ -318,6 +331,8 @@ export function DocumentManager({ initialDocuments, initialUsage, plan }: Docume
           </ul>
         )}
       </section>
+
+      {dialog.element}
     </div>
   );
 }
