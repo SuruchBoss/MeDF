@@ -1,60 +1,67 @@
 'use client';
 
-import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '@/lib/client/fetcher';
 import type { OverlayDoc } from '@/lib/editor-types';
-import type { EditorBackend } from './backend';
-import type { EditorAction } from './store';
 import { useT } from '@/lib/i18n/provider';
+import type { EditorBackend } from './backend';
 
 /**
  * Saving: the debounce, the revision the server last agreed to, and the
  * unload warning.
  *
- * Kept out of the shell because it has three pieces of hidden state that only
- * make sense together — the last overlay that reached the server, the revision
- * that came back with it, and whether a save is in flight. Split apart, it is
- * easy to clear the dirty flag for a save that no longer matches what is on
- * screen.
+ * There is one piece of state — the overlay the server last accepted, and the
+ * revision it answered with. Everything else is derived from it: the document
+ * is unsaved exactly when the current overlay is not that object, and every
+ * reducer action produces a new one, so that is an identity check.
+ *
+ * It used to be three: a `dirty` flag in the reducer, plus two refs here. They
+ * could disagree — a flag cleared for a save that no longer matched the
+ * screen, or a revision bumped without the overlay it belonged to — and the
+ * failure looked like "my work stopped saving".
  */
 
 /** Long enough that typing does not fire a save per keystroke. */
 const AUTOSAVE_DELAY = 1200;
 
+interface Accepted {
+  overlay: OverlayDoc;
+  revision: number;
+}
+
 export interface AutosaveOptions {
   backend: EditorBackend;
-  state: { overlay: OverlayDoc; dirty: boolean };
-  dispatch: Dispatch<EditorAction>;
+  /** The document as it stands in the editor. */
+  overlay: OverlayDoc;
+  /** The revision the server reported when this document was loaded. */
   revision: number;
   /** Called when a save fails with something worth showing the member. */
   onError: (message: string) => void;
 }
 
-export function useAutosave({ backend, state, dispatch, revision, onError }: AutosaveOptions) {
+export function useAutosave({ backend, overlay, revision, onError }: AutosaveOptions) {
   const t = useT();
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState<Accepted>({ overlay, revision });
 
-  const revisionRef = useRef(revision);
-  const savedOverlayRef = useRef<OverlayDoc>(state.overlay);
+  const dirty = overlay !== accepted.overlay;
 
   const save = useCallback(
     async (options: { silent?: boolean } = {}) => {
-      const snapshot = state.overlay;
-      // Reducer actions always produce a new object, so identity is enough.
-      if (snapshot === savedOverlayRef.current) return;
+      const snapshot = overlay;
+      if (snapshot === accepted.overlay) return;
 
       setSaving(true);
       try {
         const result = await backend.saveOverlay({
           overlay: snapshot,
-          baseRevision: revisionRef.current,
+          baseRevision: accepted.revision,
         });
-        revisionRef.current = result.revision;
-        savedOverlayRef.current = snapshot;
-        setSavedAt(new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
-        // Only clear the dirty flag when nothing changed while saving.
-        if (snapshot === state.overlay) dispatch({ type: 'saved' });
+        // If the member kept editing while this was in flight, `overlay` has
+        // moved on and `dirty` stays true by itself — nothing to reconcile.
+        setAccepted({ overlay: snapshot, revision: result.revision });
+        setSavedAt(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
       } catch (error) {
         // A silent autosave still reports a real API error — a revision
         // conflict or a lost session is something the member must see.
@@ -65,45 +72,39 @@ export function useAutosave({ backend, state, dispatch, revision, onError }: Aut
         setSaving(false);
       }
     },
-    [backend, dispatch, onError, state.overlay, t],
+    [accepted.overlay, accepted.revision, backend, onError, overlay, t],
   );
 
   useEffect(() => {
-    if (!state.dirty) return;
+    if (!dirty) return;
     const timer = window.setTimeout(() => void save({ silent: true }), AUTOSAVE_DELAY);
     return () => window.clearTimeout(timer);
-  }, [state.dirty, state.overlay, save]);
+  }, [dirty, save]);
 
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {
-      if (!state.dirty) return;
-      event.preventDefault();
+      if (dirty) event.preventDefault();
     }
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [state.dirty]);
+  }, [dirty]);
 
   /**
-   * Records that the server accepted `overlay` outside the normal save path.
+   * Records that the server accepted `next` outside the normal save path.
    *
    * Export sends the overlay with the request and the server stores it, so by
    * the time it returns the editor is no longer ahead of the server — without
    * this the next autosave would send the same document again and, worse, do
    * it against a revision the server has already moved past.
    */
-  const markSaved = useCallback(
-    (overlay: OverlayDoc) => {
-      savedOverlayRef.current = overlay;
-      revisionRef.current += 1;
-      dispatch({ type: 'saved' });
-    },
-    [dispatch],
-  );
+  const markSaved = useCallback((next: OverlayDoc) => {
+    setAccepted((current) => ({ overlay: next, revision: current.revision + 1 }));
+  }, []);
 
   /** The server named the authoritative revision (a rename, say). */
   const setRevision = useCallback((next: number) => {
-    revisionRef.current = next;
+    setAccepted((current) => ({ ...current, revision: next }));
   }, []);
 
-  return { save, saving, savedAt, markSaved, setRevision };
+  return { save, saving, savedAt, dirty, markSaved, setRevision };
 }

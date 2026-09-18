@@ -29,7 +29,12 @@ export function EditorScreen({
   const backend = useMemo(() => createServerBackend(documentId), [documentId]);
 
   return (
+    // Keyed by document: without this, navigating from one editor URL to
+    // another reuses this instance, and `useReducer`'s initialiser does not
+    // run again — the editor would show one document's overlay while saving
+    // it to the other.
     <EditorShell
+      key={documentId}
       backend={backend}
       title={title}
       revision={revision}

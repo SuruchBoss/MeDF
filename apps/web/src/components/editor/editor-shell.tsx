@@ -101,10 +101,9 @@ export function EditorShell({
     setNotice({ tone: 'error', message });
   }, []);
 
-  const { save, saving, savedAt, markSaved, setRevision } = useAutosave({
+  const { save, saving, savedAt, dirty, markSaved, setRevision } = useAutosave({
     backend,
-    state,
-    dispatch,
+    overlay: state.overlay,
     revision,
     onError: reportError,
   });
@@ -225,7 +224,7 @@ export function EditorShell({
     <div className="flex h-screen flex-col overflow-hidden bg-ink-100">
       <Toolbar
         title={title}
-        dirty={state.dirty}
+        dirty={dirty}
         saving={saving}
         exporting={exporting}
         savedAt={savedAt}

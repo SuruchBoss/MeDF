@@ -61,7 +61,6 @@ describe('createInitialState', () => {
   it('starts clean, unselected and without history', () => {
     const state = stateWith([text('a')]);
     assert.deepEqual(state.selection, []);
-    assert.equal(state.dirty, false);
     assert.equal(state.editingId, null);
     assert.deepEqual(state.past, []);
     assert.deepEqual(state.future, []);
@@ -79,7 +78,6 @@ describe('add', () => {
     assert.deepEqual(state.overlay.elements.map((element) => element.id), ['a']);
     assert.deepEqual(state.selection, ['a']);
     assert.equal(state.tool, 'select');
-    assert.equal(state.dirty, true);
     assert.equal(state.past.length, 1, 'adding is one undo step');
   });
 
@@ -141,7 +139,6 @@ describe('delete', () => {
     const after = editorReducer(before, { type: 'delete' });
     assert.deepEqual(after.overlay.elements.map((element) => element.id), ['b']);
     assert.deepEqual(after.selection, []);
-    assert.equal(after.dirty, true);
   });
 
   it('refuses to delete a locked element', () => {
@@ -339,37 +336,58 @@ describe('undo / redo', () => {
   });
 });
 
-describe('dirty flag', () => {
-  it('is set by every edit and cleared only by saving', () => {
-    const edited = editorReducer(stateWith([text('a')]), { type: 'updateOne', id: 'a', patch: { x: 1 } });
-    assert.equal(edited.dirty, true);
-    assert.equal(editorReducer(edited, { type: 'saved' }).dirty, false);
+describe('overlay identity', () => {
+  /**
+   * `useAutosave` decides whether the document is unsaved by comparing the
+   * overlay it holds with the last one the server accepted. That only works
+   * while an edit always produces a new object and a view change never does.
+   */
+  it('gives every edit a new overlay object', () => {
+    const start = stateWith([text('a')]);
+    const edits: EditorAction[] = [
+      { type: 'updateOne', id: 'a', patch: { x: 1 } },
+      { type: 'add', element: text('b') },
+      { type: 'reorder', id: 'a', to: 'front' },
+      { type: 'pageRotate', index: 0, delta: 90 },
+      { type: 'pageToggleHidden', index: 1 },
+      { type: 'pageMove', index: 0, to: 1 },
+    ];
+    for (const action of edits) {
+      assert.notEqual(
+        editorReducer(start, action).overlay,
+        start.overlay,
+        `${action.type} reused the overlay object, so a save would be missed`,
+      );
+    }
   });
 
-  it('is not set by view-only actions', () => {
-    const start = stateWith([text('a')]);
+  it('keeps the same overlay object for a view-only change', () => {
+    const start = { ...stateWith([text('a')]), selection: ['a'] };
     const viewActions: EditorAction[] = [
       { type: 'zoom', zoom: 2 },
       { type: 'activePage', page: 1 },
       { type: 'tool', tool: 'rect' },
       { type: 'select', ids: ['a'] },
+      { type: 'selectAllOnPage' },
+      { type: 'editing', id: 'a' },
+      { type: 'guides', guides: [] },
+      { type: 'checkpoint' },
     ];
     for (const action of viewActions) {
-      assert.equal(editorReducer(start, action).dirty, false, `${action.type} should not dirty the document`);
+      assert.equal(
+        editorReducer(start, action).overlay,
+        start.overlay,
+        `${action.type} replaced the overlay, so the document would look unsaved`,
+      );
     }
   });
 
-  it('replace with resetHistory clears the history and the dirty flag', () => {
-    const edited = editorReducer(stateWith([text('a')]), { type: 'updateOne', id: 'a', patch: { x: 1 } });
-    const replaced = editorReducer(edited, {
-      type: 'replace',
-      overlay: overlay([text('z')]),
-      resetHistory: true,
-    });
-    assert.deepEqual(replaced.past, []);
-    assert.deepEqual(replaced.future, []);
-    assert.equal(replaced.dirty, false);
-    assert.deepEqual(replaced.selection, []);
+  it('restores the identity of an earlier overlay on undo', () => {
+    const start = stateWith([text('a')]);
+    const moved = editorReducer(start, { type: 'updateOne', id: 'a', patch: { x: 5 } });
+    const undone = editorReducer(moved, { type: 'undo' });
+    // Undoing back to a saved state must look saved again, not merely equal.
+    assert.equal(undone.overlay, start.overlay);
   });
 });
 

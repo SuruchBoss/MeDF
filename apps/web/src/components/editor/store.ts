@@ -11,6 +11,12 @@ import {
 /**
  * Editor state and its reducer.
  *
+ * There is no `dirty` flag here on purpose. Whether the document differs from
+ * what the server holds is not something the reducer can know — it never sees
+ * a save — so `useAutosave` derives it by comparing the current overlay with
+ * the last one the server accepted. Every action produces a new overlay
+ * object, so that comparison is an identity check.
+ *
  * Undo/redo works on whole-overlay snapshots. Continuous gestures (drag,
  * resize, rotate) dispatch a single `checkpoint` on pointer-down and then
  * update with `history: false`, so one gesture is one undo step.
@@ -57,11 +63,9 @@ export interface EditorState {
   guides: Guide[];
   past: OverlayDoc[];
   future: OverlayDoc[];
-  dirty: boolean;
 }
 
 export type EditorAction =
-  | { type: 'replace'; overlay: OverlayDoc; resetHistory?: boolean }
   | { type: 'checkpoint' }
   | { type: 'add'; element: AnyElement; select?: boolean }
   | { type: 'update'; ids: string[]; patch: BaseElementPatch; history?: boolean }
@@ -80,8 +84,7 @@ export type EditorAction =
   | { type: 'pageToggleHidden'; index: number }
   | { type: 'pageMove'; index: number; to: number }
   | { type: 'undo' }
-  | { type: 'redo' }
-  | { type: 'saved' };
+  | { type: 'redo' };
 
 const HISTORY_LIMIT = 80;
 
@@ -96,7 +99,6 @@ export function createInitialState(overlay: OverlayDoc): EditorState {
     guides: [],
     past: [],
     future: [],
-    dirty: false,
   };
 }
 
@@ -153,17 +155,6 @@ export function createPatcher<T extends AnyElement>(
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
-    case 'replace':
-      return {
-        ...state,
-        overlay: action.overlay,
-        selection: [],
-        editingId: null,
-        dirty: action.resetHistory ? false : state.dirty,
-        past: action.resetHistory ? [] : state.past,
-        future: action.resetHistory ? [] : state.future,
-      };
-
     case 'checkpoint':
       return { ...state, ...pushHistory(state) };
 
@@ -175,7 +166,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         overlay: { ...state.overlay, elements },
         selection: action.select === false ? state.selection : [action.element.id],
         tool: 'select',
-        dirty: true,
       };
     }
 
@@ -190,7 +180,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
           ...state.overlay,
           elements: patchElements(state.overlay.elements, ids, action.patch),
         },
-        dirty: true,
       };
     }
 
@@ -207,7 +196,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         overlay: { ...state.overlay, elements },
         selection: [],
         editingId: null,
-        dirty: true,
       };
     }
 
@@ -227,7 +215,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...pushHistory(state),
         overlay: { ...state.overlay, elements: [...state.overlay.elements, ...copies] },
         selection: copies.map((element) => element.id),
-        dirty: true,
       };
     }
 
@@ -269,7 +256,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         ...pushHistory(state),
         overlay: { ...state.overlay, elements },
-        dirty: true,
       };
     }
 
@@ -298,7 +284,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         ...pushHistory(state),
         overlay: { ...state.overlay, pages },
-        dirty: true,
       };
     }
 
@@ -311,7 +296,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         ...pushHistory(state),
         overlay: { ...state.overlay, pages },
-        dirty: true,
       };
     }
 
@@ -337,7 +321,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...pushHistory(state),
         overlay: { ...state.overlay, pages, elements },
         activePage: remap.get(state.activePage) ?? state.activePage,
-        dirty: true,
       };
     }
 
@@ -351,7 +334,6 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         future: [state.overlay, ...state.future].slice(0, HISTORY_LIMIT),
         selection: [],
         editingId: null,
-        dirty: true,
       };
     }
 
@@ -365,12 +347,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         future: state.future.slice(1),
         selection: [],
         editingId: null,
-        dirty: true,
       };
     }
-
-    case 'saved':
-      return { ...state, dirty: false };
 
     default:
       return state;
