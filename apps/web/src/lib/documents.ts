@@ -132,15 +132,22 @@ export async function saveOverlay(
   overlay: OverlayDoc,
 ): Promise<DocumentRecord> {
   await writeFileTo('overlays', overlayKey(doc.id), JSON.stringify(overlay));
-  return mutate((db) => {
-    const target = db.documents.find((candidate) => candidate.id === doc.id);
-    if (!target) throw new DocumentError('ไม่พบเอกสาร', 404);
-    target.updatedAt = nowIso();
-    target.revision += 1;
-    target.elementCount = overlay.elements.length;
-    target.pageCount = overlay.pages.filter((page) => !page.hidden).length;
-    return target;
-  });
+  // The member's work is already on disk, above. What is left is the document
+  // row's derived counters, which autosave touches every few seconds — so this
+  // is the one write allowed to be deferred rather than rewriting the whole
+  // index each time. See `MutateOptions.durable`.
+  return mutate(
+    (db) => {
+      const target = db.documents.find((candidate) => candidate.id === doc.id);
+      if (!target) throw new DocumentError('ไม่พบเอกสาร', 404);
+      target.updatedAt = nowIso();
+      target.revision += 1;
+      target.elementCount = overlay.elements.length;
+      target.pageCount = overlay.pages.filter((page) => !page.hidden).length;
+      return target;
+    },
+    { durable: false },
+  );
 }
 
 export async function renameDocument(doc: DocumentRecord, title: string): Promise<DocumentRecord> {

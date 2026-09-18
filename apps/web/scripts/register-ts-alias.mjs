@@ -31,8 +31,17 @@ function resolveOnDisk(base) {
   return null;
 }
 
+/** Specifiers Next resolves itself, which have no package on disk. */
+const STUBS = new Map([
+  ['server-only', path.join(import.meta.dirname, 'stubs', 'server-only.mjs')],
+  ['client-only', path.join(import.meta.dirname, 'stubs', 'server-only.mjs')],
+]);
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    const stub = STUBS.get(specifier);
+    if (stub) return { url: pathToFileURL(stub).href, shortCircuit: true, format: 'module' };
+
     const isAlias = specifier.startsWith('@/');
     const isRelative = specifier.startsWith('./') || specifier.startsWith('../');
     if (!isAlias && !isRelative) return nextResolve(specifier, context);
