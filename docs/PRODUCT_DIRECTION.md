@@ -289,6 +289,34 @@ OCR จนกว่าสถิติจะบอกว่าไฟล์ชั�
 
 ---
 
+---
+
+## ภาคผนวก — ทะเบียน ticket
+
+| # | งาน | สัปดาห์ | ขึ้นกับ |
+| --- | --- | --- | --- |
+| [#5](https://github.com/SuruchBoss/MeDF/issues/5) | ย้าย `desktop/` ไป branch เก็บ | 1 | — |
+| [#6](https://github.com/SuruchBoss/MeDF/issues/6) | ย้ายชั้นเซิร์ฟเวอร์ไป branch เก็บ | 1 | — |
+| [#7](https://github.com/SuruchBoss/MeDF/issues/7) | รื้อ guard และ private-module loader | 1 | — |
+| [#8](https://github.com/SuruchBoss/MeDF/issues/8) | ยุบ `apps/demo` เข้า `apps/web` | 1 | #6 |
+| [#9](https://github.com/SuruchBoss/MeDF/issues/9) | `LocalBackend` เก็บงานลง IndexedDB | 2 | #6 |
+| [#10](https://github.com/SuruchBoss/MeDF/issues/10) | PWA ติดตั้งได้ ใช้ออฟไลน์ได้ | 2 | #8, #9 |
+| [**#11**](https://github.com/SuruchBoss/MeDF/issues/11) | **⭐ ตัวจำแนกชั้นไฟล์ A/B/C/D** | 2 | — |
+| [#12](https://github.com/SuruchBoss/MeDF/issues/12) | หน้าบอกผลการตรวจไฟล์ | 2 | #11 |
+| [#13](https://github.com/SuruchBoss/MeDF/issues/13) | เก็บสถิติชั้นไฟล์แบบขออนุญาต | 3 | #11 |
+| [**#14**](https://github.com/SuruchBoss/MeDF/issues/14) | **🚦 G1 — 10 ผู้ใช้แรก และสัดส่วนชั้น A** | 3 | #11–#13 |
+| [**#15**](https://github.com/SuruchBoss/MeDF/issues/15) | **⭐ spike: ลบข้อความจาก content stream** | 4–5 | #14 |
+| [**#16**](https://github.com/SuruchBoss/MeDF/issues/16) | **🚦 G2 — พรีเซล 10 คนแรก** | 6 | #15 |
+| [#17](https://github.com/SuruchBoss/MeDF/issues/17) | สกัด text run และจับกลุ่มเป็นบรรทัด | 7–8 | #15, #16 |
+| [#18](https://github.com/SuruchBoss/MeDF/issues/18) | UI แก้ข้อความในที่ | 9 | #17 |
+| [#19](https://github.com/SuruchBoss/MeDF/issues/19) | จับคู่ฟอนต์และเตือนเมื่อแทนไม่ได้ | 10 | #17 |
+| [#20](https://github.com/SuruchBoss/MeDF/issues/20) | ตัดคำไทยและจัดบรรทัดใหม่ | 11 | #18, #19 |
+| [#21](https://github.com/SuruchBoss/MeDF/issues/21) | บันทึกและเปิดไฟล์ `.medf` | 12 | #9 |
+| [#22](https://github.com/SuruchBoss/MeDF/issues/22) | รวมการแก้ข้อความเข้าท่อ export | 12 | #15, #18–#20 |
+| [#23](https://github.com/SuruchBoss/MeDF/issues/23) | ตรวจ license key แบบออฟไลน์ | 13 | #22 |
+
+⭐ = งานที่ความเสี่ยงสูงสุด · 🚦 = ประตูตัดสินใจ ไม่ใช่งานเขียนโค้ด
+
 ## ภาคผนวก — ข้อสมมติที่รอการยืนยัน
 
 1. ราคา 1,490 ซื้อขาด + 690/ปี สำหรับอัปเดต
