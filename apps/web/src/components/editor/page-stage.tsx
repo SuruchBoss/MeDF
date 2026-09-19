@@ -24,7 +24,7 @@ import {
   snapBox,
 } from './geometry';
 import { PdfPageCanvas } from './pdf-page-canvas';
-import { useLatest } from './use-latest';
+import { useLatest } from '@/lib/client/use-latest';
 import {
   type EditorAction,
   type ElementPatch,

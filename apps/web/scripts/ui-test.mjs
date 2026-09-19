@@ -499,6 +499,84 @@ try {
     JSON.stringify(proStatus),
   );
 
+  // --- The properties drawer on a phone ------------------------------------
+  // Below `lg` the panel is a drawer over the page rather than a column beside
+  // it, which makes it a modal: Escape must close it, Tab must not walk out
+  // behind it, and focus must come back to the button that opened it. None of
+  // that is free — the panel is an `<aside>`, not a `<dialog>`.
+  console.log('\n[19] แผงคุณสมบัติบนมือถือ');
+  const phone = await browser.newContext({
+    locale: 'th-TH',
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    storageState: await context.storageState(),
+  });
+  const small = await phone.newPage();
+  // Reached the way a member would, rather than by remembering a URL from
+  // eighteen sections ago — by now `page` has moved on to billing.
+  await small.goto(`${BASE}/app`, { waitUntil: 'networkidle' });
+  await small.waitForSelector('a[href^="/app/editor/"]', { timeout: 40_000 });
+  await small.click('a[href^="/app/editor/"]');
+  await small.waitForSelector('#medf-properties-panel', { timeout: 40_000 });
+  await small.waitForTimeout(1500);
+
+  const panel = small.locator('#medf-properties-panel');
+  const toggle = small.locator('button[aria-controls="medf-properties-panel"]');
+
+  check('ปุ่มเปิดแผงคุณสมบัติอยู่ในจอ', await toggle.isVisible());
+  check('แผงที่ปิดอยู่ถูกกันออกจากคีย์บอร์ด', (await panel.getAttribute('inert')) !== null);
+  check('ปุ่มบอกสถานะปิด', (await toggle.getAttribute('aria-expanded')) === 'false');
+
+  // The page itself must not be squeezed to nothing behind the panel.
+  const stageWidth = await small.evaluate(
+    () => document.querySelector('.editor-backdrop')?.clientWidth ?? 0,
+  );
+  check('พื้นที่เอกสารได้ความกว้างเกือบเต็มจอ', stageWidth > 330, `${stageWidth}px`);
+
+  await toggle.click();
+  await small.waitForTimeout(400);
+  check('เปิดแล้วแผงไม่ inert', (await panel.getAttribute('inert')) === null);
+  check('ปุ่มบอกสถานะเปิด', (await toggle.getAttribute('aria-expanded')) === 'true');
+  check(
+    'เปิดแล้วโฟกัสย้ายเข้าไปในแผง',
+    await small.evaluate(() =>
+      document.querySelector('#medf-properties-panel')?.contains(document.activeElement) ?? false,
+    ),
+  );
+
+  // Tab off the last control: it must come back to the first, not escape to
+  // the toolbar behind the drawer.
+  await small.evaluate(() => {
+    const items = document.querySelectorAll('#medf-properties-panel button, #medf-properties-panel a[href], #medf-properties-panel input');
+    (items[items.length - 1])?.focus();
+  });
+  await small.keyboard.press('Tab');
+  check(
+    'Tab วนอยู่ในแผง ไม่หลุดไปข้างหลัง',
+    await small.evaluate(() =>
+      document.querySelector('#medf-properties-panel')?.contains(document.activeElement) ?? false,
+    ),
+  );
+
+  await small.keyboard.press('Escape');
+  await small.waitForTimeout(400);
+  check('Escape ปิดแผง', (await panel.getAttribute('inert')) !== null);
+  check(
+    'ปิดแล้วโฟกัสกลับไปที่ปุ่มที่เปิดมัน',
+    await small.evaluate(
+      () => document.activeElement?.getAttribute('aria-controls') === 'medf-properties-panel',
+    ),
+  );
+
+  // Escape normally clears the selection in the editor; with the drawer open
+  // it must mean "close the drawer" and nothing else.
+  await small.keyboard.press('Escape');
+  await small.waitForTimeout(200);
+  check('Escape ซ้ำตอนแผงปิดแล้ว ไม่พังอะไร', await toggle.isVisible());
+
+  await phone.close();
+
   const ignorable = [/Failed to load resource/i, /favicon/i, /ERR_ABORTED/i, /501/];
   const realErrors = consoleErrors.filter(
     (message) => !ignorable.some((pattern) => pattern.test(message)),

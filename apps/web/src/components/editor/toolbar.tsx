@@ -10,6 +10,9 @@ import { useT } from '@/lib/i18n/provider';
 
 /** Top bar: document identity, insert tools, zoom, history and export. */
 
+/** Shared so the toggle can point `aria-controls` at the panel it opens. */
+export const PROPERTIES_PANEL_ID = 'medf-properties-panel';
+
 const TOOLS: { tool: Tool; icon: IconName; label: MessageKey; shortcut?: string }[] = [
   { tool: 'select', icon: 'cursor', label: 'element.select', shortcut: 'V' },
   { tool: 'text', icon: 'text', label: ELEMENT_LABELS.text, shortcut: 'T' },
@@ -42,6 +45,7 @@ export interface ToolbarProps {
   fitMode: 'page' | 'width';
   /** Opens the properties drawer. Only shown where the panel is not a column. */
   onToggleProperties: () => void;
+  propertiesOpen: boolean;
   backHref?: string;
   backLabel?: string;
 }
@@ -65,6 +69,7 @@ export function Toolbar({
   onFit,
   fitMode,
   onToggleProperties,
+  propertiesOpen,
   backHref = '/app',
   backLabel,
 }: ToolbarProps) {
@@ -182,6 +187,8 @@ export function Toolbar({
             onClick={onToggleProperties}
             title={t('toolbar.properties')}
             aria-label={t('toolbar.properties')}
+            aria-expanded={propertiesOpen}
+            aria-controls={PROPERTIES_PANEL_ID}
           >
             <Icon name="settings" size={17} />
           </button>

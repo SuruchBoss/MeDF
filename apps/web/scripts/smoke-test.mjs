@@ -142,6 +142,44 @@ async function main() {
     });
     check('คุกกี้ภาษาชนะ Accept-Language', (await cookieWins.json()).error === 'Please sign in.');
 
+    // --- Installable on a phone ---------------------------------------------
+    // The manifest is what makes "เพิ่มลงหน้าจอหลัก" work, and a manifest whose
+    // icons 404 installs with a blank square — so the icons are fetched too.
+    const manifestResponse = await anonymousFetch('/manifest.webmanifest');
+    const manifest = await manifestResponse.json();
+    check('มี web app manifest', manifestResponse.status === 200);
+    check(
+      'manifest เปิดที่หน้าเอกสาร ไม่ใช่หน้าขาย',
+      manifest.start_url === '/app' && manifest.display === 'standalone',
+      JSON.stringify({ start_url: manifest.start_url, display: manifest.display }),
+    );
+    check('manifest ตามภาษาของผู้อ่าน', manifest.lang === 'th', manifest.lang);
+
+    const manifestEn = await (
+      await anonymousFetch('/manifest.webmanifest', { headers: { 'accept-language': 'en-US' } })
+    ).json();
+    check('manifest ภาษาอังกฤษเมื่อผู้อ่านขอ', manifestEn.lang === 'en', manifestEn.lang);
+
+    for (const icon of manifest.icons ?? []) {
+      const response = await anonymousFetch(icon.src);
+      check(
+        `ไอคอน ${icon.sizes} (${icon.purpose}) โหลดได้`,
+        response.status === 200 && response.headers.get('content-type') === 'image/png',
+        `${icon.src} -> ${response.status}`,
+      );
+    }
+    check(
+      'มีไอคอนแบบ maskable สำหรับ Android',
+      (manifest.icons ?? []).some((icon) => icon.purpose === 'maskable'),
+    );
+
+    // Anything that ignores <link rel="icon"> asks for this by convention.
+    check('/favicon.ico ไม่ 404', (await anonymousFetch('/favicon.ico')).status === 200);
+
+    const landingHtml = await (await anonymousFetch('/')).text();
+    check('หน้าเว็บประกาศ manifest', landingHtml.includes('rel="manifest"'));
+    check('หน้าเว็บประกาศไอคอนสำหรับ iOS', landingHtml.includes('rel="apple-touch-icon"'));
+
     // --- Auth ---------------------------------------------------------------
     console.log('\n[2] ระบบสมาชิก');
     const alice = new Session();

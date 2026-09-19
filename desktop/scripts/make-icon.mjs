@@ -1,17 +1,38 @@
 /**
- * Generates the application icon (256×256 PNG plus a PNG-in-ICO for Windows).
+ * Generates every raster icon the project ships, from one drawing.
+ *
+ *   desktop/build/icon.png   256×256, the Electron window and installer
+ *   desktop/build/icon.ico   the same image, wrapped for Windows
+ *   apps/web/src/app/favicon.ico       anything that asks for /favicon.ico
+ *   apps/web/src/app/apple-icon.png    iOS home screen
+ *   apps/web/public/icon-192.png       web app manifest
+ *   apps/web/public/icon-512.png       web app manifest
+ *   apps/web/public/icon-maskable.png  Android adaptive icon
  *
  * It re-draws the web logo from the same 32-unit geometry, so the installed app
  * and the site share one identity, and the build needs no binary asset in the
  * repository and no image tooling installed.
+ *
+ * The web's copies are *tracked*, unlike the desktop's: `next build` must not
+ * depend on the desktop workspace having been built. Re-run this script after
+ * changing the mark, or the site keeps the old one.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-const SIZE = 256;
+/**
+ * The pixel grid the drawing samples against. Both are set by `render()`
+ * before each pass rather than threaded through every distance function —
+ * mutable module state, but this is a fifty-line renderer with one caller.
+ */
+let SIZE = 256;
 /** Everything below is authored in the logo's 32-unit grid and scaled up. */
-const U = SIZE / 32;
+let U = SIZE / 32;
+/** Left/top offset in pixels, so a maskable icon can inset the mark. */
+let PAD = 0;
+/** True for a maskable icon: the gradient fills the square, corners and all. */
+let OPAQUE = false;
 
 const GRADIENT = [
   { at: 0.0, rgb: [0x4f, 0x46, 0xe5] },
@@ -80,8 +101,8 @@ function renderPixels() {
   for (let py = 0; py < SIZE; py += 1) {
     for (let px = 0; px < SIZE; px += 1) {
       // Sample at the pixel centre, in logo units.
-      const x = (px + 0.5) / U;
-      const y = (py + 0.5) / U;
+      const x = (px + 0.5 - PAD) / U;
+      const y = (py + 0.5 - PAD) / U;
 
       const tile = sdRoundedRect(x, y, 0, 0, 32, 32, 8.5);
       const tileAlpha = fillAlpha(tile);
@@ -118,7 +139,9 @@ function renderPixels() {
       pixels[offset] = Math.round(colour[0]);
       pixels[offset + 1] = Math.round(colour[1]);
       pixels[offset + 2] = Math.round(colour[2]);
-      pixels[offset + 3] = Math.round(tileAlpha * 255);
+      // A maskable icon is cropped to whatever shape the launcher wants, so
+      // it must bleed to the edge; the inset keeps the mark inside the crop.
+      pixels[offset + 3] = Math.round((OPAQUE ? 1 : tileAlpha) * 255);
     }
   }
 
@@ -180,13 +203,15 @@ function encodePng(pixels) {
 }
 
 /** Wraps the PNG in an ICO container (supported by Windows Vista and later). */
-function encodeIco(png) {
+function encodeIco(png, size) {
   const directory = Buffer.alloc(22);
   directory.writeUInt16LE(0, 0); // reserved
   directory.writeUInt16LE(1, 2); // type: icon
   directory.writeUInt16LE(1, 4); // one image
-  directory[6] = 0; // width 256 is encoded as 0
-  directory[7] = 0; // height 256 is encoded as 0
+  // The directory must agree with the PNG inside it, and 256 is the one size
+  // that does not fit in a byte — it is written as 0.
+  directory[6] = size % 256;
+  directory[7] = size % 256;
   directory[8] = 0; // palette size
   directory[9] = 0; // reserved
   directory.writeUInt16LE(1, 10); // colour planes
@@ -199,21 +224,42 @@ function encodeIco(png) {
 const outDir = path.join(import.meta.dirname, '..', 'build');
 await mkdir(outDir, { recursive: true });
 
-const png = encodePng(renderPixels());
-await writeFile(path.join(outDir, 'icon.png'), png);
-await writeFile(path.join(outDir, 'icon.ico'), encodeIco(png));
-
 /**
- * The web app's home-screen icon is the same mark, so it is written from here
- * rather than drawn a second time. Unlike the two above it is *tracked*: the
- * web build must not depend on the desktop workspace having been built.
+ * Renders one square icon.
+ *
+ * `inset` is the fraction of the square left clear on each side. Android crops
+ * a maskable icon to its own shape — a circle on many launchers — and
+ * guarantees only the middle 80%. A square mark inscribed in that circle can
+ * only be about 68% of the side, which is what the inset buys; the gradient
+ * runs to the edge behind it.
  */
-const webIcon = path.join(
-  import.meta.dirname, '..', '..', 'apps', 'web', 'src', 'app', 'apple-icon.png',
-);
-await writeFile(webIcon, png);
+function render(size, { inset = 0, opaque = false } = {}) {
+  SIZE = size;
+  PAD = Math.round(size * inset);
+  U = (size - PAD * 2) / 32;
+  OPAQUE = opaque;
+  return encodePng(renderPixels());
+}
+
+const webApp = path.join(import.meta.dirname, '..', '..', 'apps', 'web', 'src', 'app');
+const webPublic = path.join(import.meta.dirname, '..', '..', 'apps', 'web', 'public');
+
+const desktopPng = render(256);
+await writeFile(path.join(outDir, 'icon.png'), desktopPng);
+await writeFile(path.join(outDir, 'icon.ico'), encodeIco(desktopPng, 256));
+
+const written = [
+  [path.join(webApp, 'apple-icon.png'), desktopPng],
+  // Modern browsers follow `<link rel="icon">` to the SVG, but crawlers and
+  // older clients still ask for /favicon.ico and got a 404.
+  [path.join(webApp, 'favicon.ico'), encodeIco(render(64), 64)],
+  [path.join(webPublic, 'icon-192.png'), render(192)],
+  [path.join(webPublic, 'icon-512.png'), render(512)],
+  [path.join(webPublic, 'icon-maskable.png'), render(512, { inset: 0.16, opaque: true })],
+];
+for (const [target, bytes] of written) await writeFile(target, bytes);
 
 console.log(
-  `[make-icon] build/icon.png (${png.length} bytes), build/icon.ico ` +
-    'และ apps/web/src/app/apple-icon.png',
+  `[make-icon] build/icon.png (${desktopPng.length} bytes), build/icon.ico ` +
+    `และไอคอนของเว็บอีก ${written.length} ไฟล์`,
 );

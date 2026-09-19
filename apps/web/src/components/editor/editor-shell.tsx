@@ -247,6 +247,7 @@ export function EditorShell({
         onFit={toggleFit}
         fitMode={fitMode}
         onToggleProperties={() => setPropertiesOpen((current) => !current)}
+        propertiesOpen={propertiesOpen}
       />
 
       <input
@@ -366,8 +367,8 @@ export function EditorShell({
           page={activePageState}
           pageIndex={state.view.activePage}
           dispatch={dispatch}
+          drawer={narrow}
           open={propertiesOpen}
-          hidden={narrow && !propertiesOpen}
           onClose={() => setPropertiesOpen(false)}
         />
       </div>

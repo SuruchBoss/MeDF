@@ -1,13 +1,15 @@
 'use client';
 
-import type { Dispatch } from 'react';
+import { type Dispatch, useRef } from 'react';
 import { Icon } from '@/components/icons';
+import { useFocusTrap } from '@/lib/client/use-focus-trap';
 import { type AnyElement, type PageState, elementLabel } from '@/lib/editor-types';
 import type { MessageKey } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
 import { NumberField, Row, Section, SliderField, ToggleButton } from './controls';
 import { ElementProperties } from './element-properties';
 import type { BaseElementPatch, EditorAction } from './store';
+import { PROPERTIES_PANEL_ID } from './toolbar';
 
 /**
  * Right-hand inspector: geometry, per-type styling, stacking order and the
@@ -20,10 +22,12 @@ interface PropertiesPanelProps {
   page: PageState | undefined;
   pageIndex: number;
   dispatch: Dispatch<EditorAction>;
-  /** Drawer state. Ignored from `lg` up, where the panel is always a column. */
+  /**
+   * True while the window is narrow enough that this is a drawer over the
+   * page rather than a column beside it. `open` only means anything then.
+   */
+  drawer: boolean;
   open: boolean;
-  /** True only when this is a *closed drawer*: off screen and out of reach. */
-  hidden: boolean;
   onClose: () => void;
 }
 
@@ -33,11 +37,17 @@ export function PropertiesPanel({
   page,
   pageIndex,
   dispatch,
+  drawer,
   open,
-  hidden,
   onClose,
 }: PropertiesPanelProps) {
   const t = useT();
+  const panel = useRef<HTMLElement>(null);
+
+  // A drawer that traps focus is a modal in everything but name, so it says so
+  // and behaves like one: Escape closes it and Tab cannot walk out behind it.
+  const modal = drawer && open;
+  useFocusTrap(panel, modal, onClose);
   const single = selection.length === 1 ? selection[0] : null;
   const ids = selection.map((element) => element.id);
 
@@ -71,9 +81,14 @@ export function PropertiesPanel({
       className={`flex w-72 shrink-0 flex-col overflow-y-auto border-l border-ink-200 bg-white transition-transform max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-[min(20rem,88vw)] max-lg:shadow-2xl ${
         open ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'
       }`}
+      ref={panel}
+      id={PROPERTIES_PANEL_ID}
       // A drawer that has slid off the edge is still in the tab order and
       // still read aloud unless it is said to be inert.
-      inert={hidden || undefined}
+      inert={(drawer && !open) || undefined}
+      role={modal ? 'dialog' : undefined}
+      aria-modal={modal || undefined}
+      aria-label={modal ? t('props.drawerTitle') : undefined}
     >
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white px-3 py-2 lg:hidden">
         <p className="text-[11px] font-bold tracking-wide text-ink-500 uppercase">
