@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getLocale, getTranslator } from '@/lib/i18n/server';
+import { th } from '@/lib/i18n/th';
 
 /**
  * The web app manifest, which is what lets a member add MeDF to a phone's
@@ -9,21 +9,21 @@ import { getLocale, getTranslator } from '@/lib/i18n/server';
  * opens on the member's documents rather than the marketing page — the same
  * place the desktop build opens.
  *
- * It follows the reader's language like every other page: the manifest is
- * fetched with the member's cookies, so `getTranslator()` resolves the same
- * locale the site is already showing them.
+ * It used to follow the reader's language. A static export has one manifest
+ * for everybody, so it is Thai — the same choice, for the same reason, as the
+ * metadata in the root layout.
  */
-export const dynamic = 'force-dynamic';
+// A metadata route is a route handler, and `output: export` needs to be told
+// it may be rendered once at build time.
+export const dynamic = 'force-static';
 
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const t = await getTranslator();
-
+export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: t('meta.title'),
+    name: th['meta.title'],
     short_name: 'MeDF',
-    description: t('meta.description'),
-    lang: await getLocale(),
-    start_url: '/app',
+    description: th['meta.description'],
+    lang: 'th',
+    start_url: '/try',
     scope: '/',
     display: 'standalone',
     orientation: 'any',

@@ -657,6 +657,8 @@ export const en: Record<MessageKey, string> = {
     'Upload a PDF, then drag text, images, signatures and shapes straight onto the page. Resize, arrange, and export back to PDF at the original quality.',
   'meta.documents': 'My documents',
   'meta.editor': 'Edit document',
+  'meta.keywordEdit': 'edit PDF online',
+  'meta.keywordSign': 'sign a PDF',
   'meta.login': 'Sign in',
   'meta.notFound': 'Page not found',
   'meta.register': 'Create an account',

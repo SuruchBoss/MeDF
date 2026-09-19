@@ -17,8 +17,12 @@ GitHub Pages — deploy อัตโนมัติจาก workflow ใน `.g
 **ไฟล์ของผู้ใช้ต้องไม่ออกจากเบราว์เซอร์** ปลายทางที่เลือกต้องไม่มี edge function
 หรือ analytics ที่อ่านเนื้อหาเอกสาร ถ้าวันหนึ่งย้ายไปโฮสต์อื่น เกณฑ์ข้อนี้มาก่อนราคา
 
-## ยังไม่เสร็จ
+## build เอง
 
-การยุบ `apps/demo` เข้า `apps/web` และตั้ง static export อยู่ใน
-[#8](https://github.com/SuruchBoss/MeDF/issues/8) — จนกว่าจะเสร็จ เว็บที่ deploy ขึ้น Pages
-ยังมาจาก `apps/demo`
+```bash
+npm install
+NEXT_PUBLIC_BASE_PATH=/MeDF npm run build   # ได้ไฟล์ที่ apps/web/out/
+npm run preview                              # เปิดดูที่ http://localhost:4173
+```
+
+ถ้าเสิร์ฟจาก root ของโดเมน (custom domain) ไม่ต้องตั้ง `NEXT_PUBLIC_BASE_PATH`

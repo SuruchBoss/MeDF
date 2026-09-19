@@ -4,8 +4,7 @@
   "private": true,
   "description": "MeDF \u2014 PDF editor with drag & drop overlay editing, members and subscriptions",
   "workspaces": [
-    "apps/web",
-    "apps/demo"
+    "apps/web"
   ],
   "engines": {
     "node": ">=20.9.0"
@@ -13,20 +12,16 @@
   "scripts": {
     "dev": "npm run dev --workspace medf-web",
     "build": "npm run build --workspace medf-web",
-    "start": "npm run start --workspace medf-web",
     "lint": "npm run lint --workspace medf-web",
-    "typecheck": "npm run typecheck --workspace medf-web && npm run typecheck --workspace medf-demo",
+    "typecheck": "npm run typecheck --workspace medf-web",
     "test": "npm run test:unit && npm run test:ui && npm run test:ux && npm run test:demo",
     "test:ui": "node apps/web/scripts/ui-test.mjs",
-    "test:standalone": "node apps/web/scripts/prepare-standalone.mjs && node apps/web/scripts/verify-standalone.mjs",
-    "demo:dev": "npm run dev --workspace medf-demo",
-    "demo:build": "npm run build --workspace medf-demo",
     "test:demo": "node apps/web/scripts/demo-test.mjs",
-    "test:static": "node apps/demo/scripts/static-test.mjs",
     "test:unit": "npm run test:unit --workspace medf-web",
     "test:ux": "node apps/web/scripts/ux-audit.mjs --quick",
     "audit:ux": "node apps/web/scripts/ux-audit.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "preview": "npx http-server apps/web/out -p 4173 -c-1"
   },
   "devDependencies": {
     "playwright": "1.56.1",

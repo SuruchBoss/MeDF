@@ -34,7 +34,7 @@ interface Session {
   title: string;
 }
 
-export function DemoEditor({ homeHref = '/' }: { homeHref?: string }) {
+export function EditorPage({ homeHref = '/' }: { homeHref?: string }) {
   const t = useT();
   const locale = useLocale();
   const [session, setSession] = useState<Session | null>(null);

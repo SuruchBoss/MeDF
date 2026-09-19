@@ -1,14 +1,16 @@
+'use client';
+
 import Link from 'next/link';
 import { ErrorScreen } from '@/components/error-screen';
-import type { Metadata } from 'next';
-import { getTranslator } from '@/lib/i18n/server';
+import { useT } from '@/lib/i18n/provider';
 
-export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getTranslator())('meta.notFound') };
-}
-
-export default async function NotFound() {
-  const t = await getTranslator();
+/**
+ * A client component, because a static export cannot resolve the reader's
+ * language on the server. `metadata` goes with it for the same reason — the
+ * page title falls back to the layout's.
+ */
+export default function NotFound() {
+  const t = useT();
 
   return (
     <ErrorScreen code="404" title={t('error.notFoundTitle')} description={t('error.notFoundBody')}>

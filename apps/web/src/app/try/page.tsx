@@ -1,13 +1,22 @@
 import type { Metadata } from 'next';
-import { DemoEditor } from '@/components/demo/demo-editor';
+import { EditorPage } from '@/components/editor/editor-page';
+import { th } from '@/lib/i18n/th';
 
+/**
+ * Build-time metadata reads the Thai dictionary directly.
+ *
+ * A static export has one prerendered copy for everybody, so `t()` — which
+ * needs a reader — cannot help here; the page has to pick a language before
+ * anyone arrives, and MeDF is a Thai-market tool. Reading `th` rather than
+ * typing the sentence keeps it in the one place translations live, so the
+ * "no Thai outside the dictionary" test still holds.
+ */
 export const metadata: Metadata = {
-  title: 'Try it now',
-  description:
-    'Edit a PDF with MeDF right in your browser — no account, and nothing is uploaded.',
+  title: th['meta.tryTitle'],
+  description: th['meta.tryDescription'],
 };
 
-/** The no-signup editor, available on the product site as well as the demo. */
+/** The editor. There is no other one — `/try` is where the work happens. */
 export default function TryPage() {
-  return <DemoEditor />;
+  return <EditorPage />;
 }

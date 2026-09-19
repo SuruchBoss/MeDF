@@ -22,7 +22,7 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
-  startNextServer,
+  startStaticServer,
   waitForHttp,
 } from '../../../scripts/test-harness.mjs';
 
@@ -355,22 +355,13 @@ const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-ux-'));
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 
-const server = startNextServer({
-  cwd: webRoot,
-  port: PORT,
-  env: {
-    MEDF_DATA_DIR: dataDir,
-    MEDF_SESSION_SECRET: 'ux-audit-secret-ux-audit-secret-ux-a',
-    MEDF_BILLING_SANDBOX: '1',
-    MEDF_APP_URL: BASE,
-  },
-});
+const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
 
 const report = [];
 let browser;
 
 try {
-  await waitForHttp(`${BASE}/api/health`, { server });
+  await waitForHttp(`${BASE}/`, { server });
 
   // A member with one document, so the editor and the list have something in
   // them: an empty screen hides most of the layout problems worth finding.

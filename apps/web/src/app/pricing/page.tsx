@@ -1,4 +1,5 @@
-import type { Metadata } from 'next';
+'use client';
+
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
 import { PricingTable } from '@/components/marketing/pricing-table';
@@ -6,15 +7,13 @@ import { SiteFooter } from '@/components/marketing/site-footer';
 import { SiteHeader } from '@/components/marketing/site-header';
 import type { Locale, MessageKey, Translate } from '@/lib/i18n';
 import { formatCount } from '@/lib/i18n/format';
-import { getLocale, getTranslator } from '@/lib/i18n/server';
+import { useLocale, useT } from '@/lib/i18n/provider';
 import { type Plan, PLANS, PLAN_ORDER } from '@/lib/plans';
 
-// Nothing on this page depends on who is looking at it any more.
-
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslator();
-  return { title: t('pricingPage.title'), description: t('pricingPage.description') };
-}
+/**
+ * A client component: the site is a static export, so the reader's language
+ * is resolved in the browser. The page title comes from the root layout.
+ */
 
 /** One row of the comparison table, rendered per plan. */
 interface ComparisonRow {
@@ -51,9 +50,9 @@ const COMPARISON: ComparisonRow[] = [
   },
 ];
 
-export default async function PricingPage() {
-  const t = await getTranslator();
-  const locale = await getLocale();
+export default function PricingPage() {
+  const t = useT();
+  const locale = useLocale();
 
   return (
     <div className="flex min-h-full flex-col">

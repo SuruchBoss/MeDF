@@ -14,7 +14,7 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
-  startNextServer,
+  startStaticServer,
   waitForHttp,
 } from '../../../scripts/test-harness.mjs';
 
@@ -31,19 +31,12 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const { check, report } = createChecker({ name: 'ทดสอบโหมดทดลอง' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-demo-'));
-const server = startNextServer({
-  cwd: webRoot,
-  port: PORT,
-  env: {
-    MEDF_DATA_DIR: dataDir,
-    MEDF_SESSION_SECRET: 'demo-test-secret-demo-test-secret-demo',
-  },
-});
+const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
 
 let failed = false;
 let browser;
 try {
-  await waitForHttp(`${BASE}/api/health`, { server });
+  await waitForHttp(`${BASE}/`, { server });
 
   const { chromium } = loadPlaywright();
   browser = await browserLaunch(chromium);

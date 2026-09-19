@@ -1,24 +1,29 @@
 import type { Metadata, Viewport } from 'next';
 import { FontFaces } from '@/components/font-faces';
 import { LocaleProvider } from '@/lib/i18n/provider';
-import { getLocale, getTranslator } from '@/lib/i18n/server';
+import { th } from '@/lib/i18n/th';
 import '@/styles/globals.css';
 
-/** Search results and link previews follow the reader's language too. */
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslator();
-  const title = t('meta.title');
-  const description = t('meta.description');
-
-  return {
-    title: { default: title, template: '%s · MeDF' },
-    description,
-    keywords: ['PDF', 'PDF editor', 'edit PDF', 'sign PDF', 'แก้ไข PDF', 'เซ็นเอกสาร', 'MeDF'],
-    applicationName: 'MeDF',
-    authors: [{ name: 'MeDF' }],
-    openGraph: { title, description, type: 'website' },
-  };
-}
+/**
+ * The app is a static export, so nothing here can read a cookie or a header:
+ * every page is one prerendered file served to everybody. The locale is
+ * therefore picked in the browser — `LocaleProvider` reads the cookie and the
+ * browser's own preference — and `<html lang>` starts at the default and is
+ * corrected on hydration.
+ *
+ * The metadata below is Thai for the same reason — a link preview has to pick
+ * one language before anyone arrives, and MeDF is a Thai-market tool
+ * (docs/PRODUCT_DIRECTION.md §2). It is read from the dictionary rather than
+ * typed out, so the strings stay in one place.
+ */
+export const metadata: Metadata = {
+  title: { default: th['meta.title'], template: '%s · MeDF' },
+  description: th['meta.description'],
+  keywords: ['PDF', 'PDF editor', 'edit PDF', th['meta.keywordEdit'], th['meta.keywordSign'], 'MeDF'],
+  applicationName: 'MeDF',
+  authors: [{ name: 'MeDF' }],
+  openGraph: { title: th['meta.title'], description: th['meta.description'], type: 'website' },
+};
 
 export const viewport: Viewport = {
   themeColor: '#4f46e5',
@@ -26,18 +31,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Resolved on the server so the first client render matches the HTML it is
-  // hydrating; a mismatch here would be a hydration error on every page.
-  const locale = await getLocale();
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={locale}>
+    <html lang="th">
       <head>
         <FontFaces />
       </head>
       <body className="min-h-full font-sans antialiased">
-        <LocaleProvider locale={locale}>{children}</LocaleProvider>
+        <LocaleProvider locale="detect">{children}</LocaleProvider>
       </body>
     </html>
   );

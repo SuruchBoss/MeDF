@@ -653,6 +653,8 @@ export const th = {
     'อัปโหลด PDF แล้วลากวางข้อความ รูปภาพ ลายเซ็น และรูปทรงลงในหน้าเอกสารได้ทันที ปรับขนาด จัดเรียง แล้ว Export กลับเป็น PDF คุณภาพเดิม',
   'meta.documents': 'เอกสารของฉัน',
   'meta.editor': 'แก้ไขเอกสาร',
+  'meta.keywordEdit': 'แก้ไข PDF',
+  'meta.keywordSign': 'เซ็นเอกสาร',
   'meta.login': 'เข้าสู่ระบบ',
   'meta.notFound': 'ไม่พบหน้านี้',
   'meta.register': 'สมัครสมาชิก',

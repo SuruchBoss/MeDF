@@ -19,7 +19,7 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
-  startNextServer,
+  startStaticServer,
   waitForHttp,
 } from '../../../scripts/test-harness.mjs';
 import { makeSamplePdf } from './make-sample-pdf.mjs';
@@ -39,16 +39,12 @@ const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-ui-'));
 const samplePath = path.join(dataDir, 'sample-document.pdf');
 await writeFile(samplePath, await makeSamplePdf());
 
-const server = startNextServer({
-  cwd: webRoot,
-  port: PORT,
-  env: { MEDF_APP_URL: BASE },
-});
+const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
 
 let failed = false;
 let browser;
 try {
-  await waitForHttp(`${BASE}/api/health`, { server });
+  await waitForHttp(`${BASE}/`, { server });
   const { chromium } = loadPlaywright();
   browser = await chromium.launch({
     args: ['--no-sandbox', '--disable-dev-shm-usage'],

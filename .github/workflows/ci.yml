@@ -42,29 +42,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Standalone bundle check
-        run: |
-          node apps/web/scripts/prepare-standalone.mjs
-          npm run test:standalone
-
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
       - name: Editor UI tests
         run: npm run test:ui
 
-      - name: Try-it-now editor tests
+      - name: Browser-only editor tests
         run: npm run test:demo
 
       - name: UX/UI audit
         run: npm run test:ux
-
-      - name: Static demo build and check
-        run: |
-          npm run demo:build
-          npm run test:static
-        env:
-          NEXT_PUBLIC_BASE_PATH: /MeDF
 
       - name: Upload failure artifacts
         if: failure()

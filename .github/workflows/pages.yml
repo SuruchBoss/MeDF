@@ -1,4 +1,4 @@
-name: Deploy demo to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build the static demo
+    name: Build the static site
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -57,7 +57,7 @@ jobs:
           exit 1
 
       - name: Build
-        run: npm run demo:build
+        run: npm run build
         env:
           # e.g. "/MeDF" for https://<user>.github.io/MeDF/, "" for a custom
           # domain served from the root.
@@ -67,14 +67,14 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Verify the exported site really works
-        run: npm run test:static
+        run: npm run test:demo
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/demo/out
+          path: apps/web/out
 
   deploy:
     name: Deploy

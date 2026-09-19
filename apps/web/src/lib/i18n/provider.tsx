@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   type Locale,
   type Translate,
@@ -14,10 +14,16 @@ import { LOCALE_COOKIE_MAX_AGE, localeFromAcceptLanguage } from './locales';
 /**
  * The locale for client components.
  *
- * The server resolves it and seeds the provider, so the first client render
- * matches the HTML it is hydrating — a mismatch here would be a hydration
- * error on every page. The static demo has no server to ask, so it passes
- * `detect` and the provider works it out from the browser instead.
+ * The site is a static export: one prerendered copy, in the default language,
+ * served to everybody. So the locale is worked out in the browser — but *not*
+ * on the render that hydrates that HTML, or an English reader's first paint
+ * would disagree with the Thai markup React is attaching to. That is React
+ * error #418, and it costs the whole page: React throws the server HTML away
+ * and re-renders from scratch.
+ *
+ * `useSyncExternalStore` is the fix rather than a workaround: its third
+ * argument is the value to use while hydrating, so the first render matches
+ * the HTML by construction and the real locale lands on the render after.
  */
 
 const LocaleContext = createContext<{ locale: Locale; t: Translate }>({
@@ -41,15 +47,19 @@ export function detectLocaleInBrowser(): Locale {
   return localeFromAcceptLanguage(navigator.language) ?? DEFAULT_LOCALE;
 }
 
+/** Nothing changes the locale without a reload, so there is nothing to watch. */
+const subscribe = () => () => {};
+
 export function LocaleProvider({
   locale,
   children,
 }: {
-  /** `'detect'` is for the static export, which has no server render. */
+  /** `'detect'` reads the cookie and the browser; anything else is taken as given. */
   locale: Locale | 'detect';
   children: React.ReactNode;
 }) {
-  const resolved = locale === 'detect' ? detectLocaleInBrowser() : locale;
+  const detected = useSyncExternalStore(subscribe, detectLocaleInBrowser, () => DEFAULT_LOCALE);
+  const resolved = locale === 'detect' ? detected : locale;
   const value = useMemo(
     () => ({ locale: resolved, t: createTranslator(resolved) }),
     [resolved],
