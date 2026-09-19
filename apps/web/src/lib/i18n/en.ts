@@ -330,6 +330,17 @@ export const en: Record<MessageKey, string> = {
   'validation.hexColour': 'Must be a colour in #rrggbb form',
 
   // --- Editor: toolbar ------------------------------------------------------
+  'store.recentTitle': 'Recent work on this device',
+  'store.usage': 'using {used}',
+  'store.meta': '{pages} pages · {size} · edited {when}',
+  'store.open': 'Open',
+  'store.deleteTitle': 'Delete “{title}”?',
+  'store.deleteBody': 'This work is removed from this device permanently and cannot be recovered.',
+  'store.clearWarning': 'Your work is stored only in this browser. Clearing browsing data deletes it, and it cannot be opened on another device.',
+  'store.unavailable': 'This browser will not store your work (a private window, perhaps). Editing and export still work, but closing the tab loses it.',
+  'store.quotaFull': 'The browser is out of storage. Delete work you no longer need, and saving will resume.',
+  'store.failed': 'Could not save to this device. Your edits are still on screen — export them to be safe.',
+  'store.loadFailed': 'Could not open the saved work.',
   'toolbar.autosaveOn': 'Autosave is on',
   'toolbar.export': 'Export as PDF',
   'toolbar.exportButton': 'Export PDF',

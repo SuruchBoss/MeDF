@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '@/lib/client/fetcher';
+import { LocalStoreError } from '@/lib/client/local-store';
+import { storeFailureKey } from './local-backend';
 import type { OverlayDoc } from '@/lib/editor-types';
 import { useT } from '@/lib/i18n/provider';
 import type { EditorBackend } from './backend';
@@ -63,10 +65,14 @@ export function useAutosave({ backend, overlay, revision, onError }: AutosaveOpt
         setAccepted({ overlay: snapshot, revision: result.revision });
         setSavedAt(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
       } catch (error) {
-        // A silent autosave still reports a real API error — a revision
-        // conflict or a lost session is something the member must see.
-        if (!options.silent || error instanceof ApiError) {
-          onError(error instanceof ApiError ? error.message : t('shell.saveFailed'));
+        // A silent autosave still speaks up when the member has to do
+        // something: a revision conflict, or a browser that is out of room
+        // and has quietly stopped keeping their work.
+        const mustSee = error instanceof ApiError || error instanceof LocalStoreError;
+        if (!options.silent || mustSee) {
+          if (error instanceof ApiError) onError(error.message);
+          else if (error instanceof LocalStoreError) onError(t(storeFailureKey(error)));
+          else onError(t('shell.saveFailed'));
         }
       } finally {
         setSaving(false);

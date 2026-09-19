@@ -400,12 +400,48 @@ try {
   check('ไฟล์ที่ได้มีข้อความที่พิมพ์ไว้', text.includes('สวัสดีจาก MeDF'), text.slice(0, 300));
   check('ไฟล์ที่ได้ยังมีเนื้อหาต้นฉบับ', text.includes('PAGEMARKER-ONE'));
 
+  // --- The work survives the tab ------------------------------------------
+  // The reason IndexedDB exists in this app: close it, come back, still there.
+  console.log('\n[16] ปิดแท็บแล้วงานยังอยู่');
+  const beforeReload = await page.locator('[data-element-id]').count();
+  const documentUrl = page.url();
+  check('ที่อยู่ของเอกสารอยู่ใน URL', /[?&]doc=/.test(documentUrl), documentUrl);
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-element-id]', { timeout: 60_000 });
+  check(
+    'องค์ประกอบทั้งหมดยังอยู่ครบหลังโหลดใหม่',
+    (await page.locator('[data-element-id]').count()) === beforeReload,
+    `${await page.locator('[data-element-id]').count()} จาก ${beforeReload}`,
+  );
+  check(
+    'รูปภาพที่วางไว้ยังแสดงได้ (ไม่ใช่ URL ที่ตายไปแล้ว)',
+    await page.evaluate(() =>
+      [...document.querySelectorAll('[data-element-id] img')].every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ),
+    ),
+  );
+
+  // A fresh tab, not just a reload: nothing carried over in memory.
+  const second = await context.newPage();
+  await second.goto(`${BASE}/try/`, { waitUntil: 'networkidle' });
+  await second.waitForSelector('button:has-text("เปิด")', { timeout: 40_000 });
+  check('หน้าแรกแสดงรายการงานที่บันทึกไว้', true);
+  await second.click('button:has-text("เปิด")');
+  await second.waitForSelector('[data-element-id]', { timeout: 60_000 });
+  check(
+    'เปิดจากรายการแล้วได้งานเดิมครบ',
+    (await second.locator('[data-element-id]').count()) === beforeReload,
+  );
+  await second.close();
+
   // --- The properties drawer on a phone ------------------------------------
   // Below `lg` the panel is a drawer over the page rather than a column beside
   // it, which makes it a modal: Escape must close it, Tab must not walk out
   // behind it, and focus must come back to the button that opened it. None of
   // that is free — the panel is an `<aside>`, not a `<dialog>`.
-  console.log('\n[16] แผงคุณสมบัติบนมือถือ');
+  console.log('\n[17] แผงคุณสมบัติบนมือถือ');
   const phone = await browser.newContext({
     locale: 'th-TH',
     viewport: { width: 390, height: 844 },
