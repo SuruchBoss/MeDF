@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getCurrentUser } from '@/lib/auth';
 import { Icon } from '@/components/icons';
 import { PricingTable } from '@/components/marketing/pricing-table';
 import { SiteFooter } from '@/components/marketing/site-footer';
@@ -10,7 +9,7 @@ import { formatCount } from '@/lib/i18n/format';
 import { getLocale, getTranslator } from '@/lib/i18n/server';
 import { type Plan, PLANS, PLAN_ORDER } from '@/lib/plans';
 
-export const dynamic = 'force-dynamic';
+// Nothing on this page depends on who is looking at it any more.
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslator();
@@ -63,13 +62,12 @@ const COMPARISON: ComparisonRow[] = [
 ];
 
 export default async function PricingPage() {
-  const user = await getCurrentUser();
   const t = await getTranslator();
   const locale = await getLocale();
 
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader signedIn={Boolean(user)} />
+      <SiteHeader signedIn={false} />
 
       <main className="flex-1">
         <section className="border-b border-ink-200 bg-gradient-to-b from-brand-50/60 to-ink-50 py-16">
@@ -86,7 +84,7 @@ export default async function PricingPage() {
             {/* The cards inside are h3. Without this the page would run h1 → h3,
                 which reads to a screen reader as a missing level. */}
             <h2 className="sr-only">{t('pricingPage.plans')}</h2>
-            <PricingTable signedIn={Boolean(user)} currentPlan={user?.plan} />
+            <PricingTable />
           </div>
         </section>
 
@@ -125,8 +123,8 @@ export default async function PricingPage() {
             <div className="mt-10 flex flex-wrap items-center gap-3 rounded-2xl bg-ink-50 p-6">
               <Icon name="shield" size={22} className="text-brand-600" />
               <p className="flex-1 text-sm text-ink-600">{t('pricingPage.unsure')}</p>
-              <Link href={user ? '/app' : '/register'} className="btn-primary">
-                {user ? t('nav.toWorkspace') : t('pricing.startFree')}
+              <Link href="/try" className="btn-primary">
+                {t('pricing.startFree')}
               </Link>
             </div>
           </div>

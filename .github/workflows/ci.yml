@@ -48,9 +48,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: API end-to-end tests
-        run: npm run test:api
-
       - name: Standalone bundle check
         run: |
           node apps/web/scripts/prepare-standalone.mjs

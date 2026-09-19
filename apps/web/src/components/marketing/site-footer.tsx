@@ -71,25 +71,7 @@ export function SiteFooter({
                   </a>
                 </li>
               </>
-            ) : (
-              <>
-                <li>
-                  <Link href="/register" className="hover:text-ink-900">
-                    {t('footer.register')}
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/login" className="hover:text-ink-900">
-                    {t('footer.login')}
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/app/billing" className="hover:text-ink-900">
-                    {t('footer.manageSubscription')}
-                  </Link>
-                </li>
-              </>
-            )}
+            ) : null}
           </ul>
         </div>
       </div>

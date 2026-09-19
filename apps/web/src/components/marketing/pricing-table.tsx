@@ -14,7 +14,6 @@ import {
 } from '@/lib/plans';
 
 interface PricingTableProps {
-  signedIn?: boolean;
   /** Highlights the member's current plan and switches the copy to "billing" mode. */
   currentPlan?: PlanId;
   /** Present on the billing screen; absent on marketing pages. */
@@ -26,7 +25,6 @@ interface PricingTableProps {
 }
 
 export function PricingTable({
-  signedIn = false,
   currentPlan,
   onChoose,
   busyPlan = null,
@@ -147,26 +145,12 @@ export function PricingTable({
                   )
                 ) : (
                   <Link
-                    href={
-                      demo
-                        ? tryHref
-                        : planId === 'free'
-                          ? signedIn
-                            ? '/app'
-                            : '/register'
-                          : signedIn
-                            ? `/app/billing?plan=${planId}&interval=${interval}`
-                            : `/register?plan=${planId}&interval=${interval}`
-                    }
+                    // Every plan leads to the editor: there is nowhere to sign
+                    // up any more, and a licence is bought outside the app.
+                    href={tryHref}
                     className={plan.highlight ? 'btn-primary w-full' : 'btn-secondary w-full'}
                   >
-                    {demo
-                      ? planId === 'free'
-                        ? t('nav.tryNow')
-                        : t('pricing.tryTools')
-                      : planId === 'free'
-                        ? t('pricing.startFree')
-                        : t('pricing.choosePlan', { plan: plan.name })}
+                    {planId === 'free' ? t('nav.tryNow') : t('pricing.tryTools')}
                   </Link>
                 )}
               </div>

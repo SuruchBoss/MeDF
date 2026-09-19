@@ -19,14 +19,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
-  Session,
   findChromium,
   freePort,
   loadPlaywright,
   startNextServer,
   waitForHttp,
 } from '../../../scripts/test-harness.mjs';
-import { makeSamplePdf } from './make-sample-pdf.mjs';
 
 const webRoot = path.join(import.meta.dirname, '..');
 const outDir = path.join(webRoot, '.ux-audit');
@@ -34,7 +32,6 @@ const QUICK = process.argv.includes('--quick');
 
 const PORT = await freePort('AUDIT_PORT');
 const BASE = `http://127.0.0.1:${PORT}`;
-const PASSWORD = 'UxAuditPassword123';
 
 /**
  * `windows-min` and `windows` mirror the desktop shell's window; the rest are
@@ -377,37 +374,10 @@ try {
 
   // A member with one document, so the editor and the list have something in
   // them: an empty screen hides most of the layout problems worth finding.
-  const api = new Session(BASE);
-  await api.json('/api/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'UX Audit', email: 'ux@example.com', password: PASSWORD }),
-  });
-
-  const form = new FormData();
-  form.append('file', new File([await makeSamplePdf()], 'สัญญาตัวอย่าง.pdf', { type: 'application/pdf' }));
-  const upload = await api.json('/api/documents', { method: 'POST', body: form });
-  const documentId = upload.body?.document?.id;
-  if (!documentId) throw new Error(`อัปโหลดเอกสารตัวอย่างไม่สำเร็จ: ${JSON.stringify(upload.body)}`);
-
-  const cookies = [...api.cookies].map(([name, value]) => ({
-    name,
-    value,
-    domain: '127.0.0.1',
-    path: '/',
-  }));
-
   const PAGES = [
     { id: 'landing', url: '/', auth: false },
     { id: 'pricing', url: '/pricing', auth: false },
-    { id: 'login', url: '/login', auth: false },
-    { id: 'register', url: '/register', auth: false },
-    { id: 'try', url: '/try', auth: false, settle: 4000 },
-    { id: 'documents', url: '/app', auth: true },
-    { id: 'account', url: '/app/account', auth: true },
-    { id: 'billing', url: '/app/billing', auth: true },
-    { id: 'admin', url: '/app/admin', auth: true },
-    { id: 'editor', url: `/app/editor/${documentId}`, auth: true, settle: 4000 },
+    { id: 'editor', url: '/try', auth: false, settle: 5000 },
   ];
 
   const { chromium } = loadPlaywright();
@@ -425,15 +395,9 @@ try {
         isMobile: viewport.touch,
         deviceScaleFactor: 1,
       };
-      // Two browsers' worth of state, because `/login` redirects a signed-in
-      // member to `/app`: one cookie jar for the whole run would quietly audit
-      // the wrong page and report it under the right name.
-      const anonymous = await browser.newContext(shape);
-      const member = await browser.newContext(shape);
-      await member.addCookies(cookies);
+      const context = await browser.newContext(shape);
 
       for (const target of PAGES) {
-        const context = target.auth ? member : anonymous;
         const page = await context.newPage();
         const console_ = [];
         page.on('console', (message) => {
@@ -483,8 +447,7 @@ try {
         await page.close();
       }
 
-      await anonymous.close();
-      await member.close();
+      await context.close();
     }
   }
 } finally {

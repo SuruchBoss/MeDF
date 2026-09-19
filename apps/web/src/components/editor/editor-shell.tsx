@@ -274,7 +274,7 @@ export function EditorShell({
           <Icon name={notice.tone === 'error' ? 'x' : 'check-circle'} size={16} />
           <span className="flex-1">{notice.message}</span>
           {notice.tone === 'error' && plan === 'free' ? (
-            <a href="/app/billing" className="font-semibold underline">
+            <a href="/pricing" className="font-semibold underline">
               {t('shell.seePlans')}
             </a>
           ) : null}

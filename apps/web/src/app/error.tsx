@@ -36,7 +36,7 @@ export default function AppError({
       <button type="button" onClick={reset} className="btn-primary btn-sm">
         {t('common.retry')}
       </button>
-      <Link href="/app" className="btn-secondary btn-sm">
+      <Link href="/try" className="btn-secondary btn-sm">
         {t('error.myDocuments')}
       </Link>
     </ErrorScreen>

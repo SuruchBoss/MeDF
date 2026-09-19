@@ -70,7 +70,7 @@ export function Toolbar({
   fitMode,
   onToggleProperties,
   propertiesOpen,
-  backHref = '/app',
+  backHref = '/',
   backLabel,
 }: ToolbarProps) {
   const t = useT();

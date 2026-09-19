@@ -1,11 +1,14 @@
 /**
  * Browser test for the editor.
  *
- * Drives the real UI with Playwright: sign up, upload a PDF, place elements by
- * clicking, drag and resize them with the mouse, draw a signature, then export
- * and read the resulting PDF back. This is the only test that exercises the
- * pointer gestures, so it is the one that catches coordinate-space mistakes in
- * the stage.
+ * Drives the real UI with Playwright: open `/try`, hand it a PDF, place
+ * elements by clicking, drag and resize them with the mouse, draw a signature,
+ * then export and read the resulting PDF back. This is the only test that
+ * exercises the pointer gestures, so it is the one that catches
+ * coordinate-space mistakes in the stage.
+ *
+ * It used to sign up and upload to the server. There is no server: everything
+ * below happens in the browser, which is the whole point of the product now.
  */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -30,8 +33,6 @@ const webRoot = path.join(import.meta.dirname, '..');
 
 const PORT = await freePort('UI_PORT');
 const BASE = `http://127.0.0.1:${PORT}`;
-const PASSWORD = 'UiTestPassword123';
-
 const { check, report } = createChecker({ name: 'ทดสอบหน้าเว็บ' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-ui-'));
@@ -41,14 +42,7 @@ await writeFile(samplePath, await makeSamplePdf());
 const server = startNextServer({
   cwd: webRoot,
   port: PORT,
-  env: {
-    MEDF_DATA_DIR: dataDir,
-    MEDF_SESSION_SECRET: 'ui-test-secret-ui-test-secret-ui-test',
-    MEDF_BILLING_SANDBOX: '1',
-    MEDF_APP_URL: BASE,
-    // This test asserts the behaviour of the pure open-source build.
-    MEDF_PRO_DISABLE: '1',
-  },
+  env: { MEDF_APP_URL: BASE },
 });
 
 let failed = false;
@@ -107,7 +101,7 @@ try {
   );
   check(
     'ปุ่มใน header เป็นภาษาอังกฤษ',
-    (await page.locator('header').innerText()).includes('Sign in'),
+    (await page.locator('header').innerText()).includes('Try it'),
   );
 
   await page.locator('header select').first().selectOption('th');
@@ -117,80 +111,42 @@ try {
     /อัปโหลด PDF/.test(await page.locator('h1').first().innerText()),
   );
 
-  // --- Sign up ------------------------------------------------------------
-  console.log('\n[2] สมัครสมาชิกผ่านหน้าเว็บ');
-  await page.goto(`${BASE}/register`, { waitUntil: 'domcontentloaded' });
-  await page.fill('#name', 'คุณทดสอบ');
-  await page.fill('#email', 'ui@example.com');
-  await page.fill('#password', PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForURL('**/app', { timeout: 30_000 });
-  check('สมัครสมาชิกแล้วเข้าสู่หน้าเอกสาร', page.url().endsWith('/app'));
+  // --- Hand the editor a PDF ----------------------------------------------
+  // No account, no upload: `/try` reads the file in the browser and never
+  // sends it anywhere. Section [5] below proves the "never sends it" part.
+  console.log('\n[2] เปิดหน้าแก้ไขด้วยไฟล์ของตัวเอง');
+  await page.goto(`${BASE}/try`, { waitUntil: 'networkidle' });
   check(
-    'หน้าเอกสารแสดงพื้นที่อัปโหลด',
+    'หน้าทดลองใช้แสดงพื้นที่วางไฟล์',
     await page.getByText('ลากไฟล์ PDF มาวางที่นี่').isVisible(),
   );
+  // React attaches `onDrop` at hydration. Dropping on the server-rendered
+  // markup before that lands on nothing and looks exactly like a broken drop
+  // handler, so wait for the page to admit it is interactive first.
+  await page.waitForFunction(
+    () => !document.querySelector('button[disabled]'),
+    { timeout: 30_000 },
+  );
 
-  // --- Upload -------------------------------------------------------------
-  console.log('\n[3] อัปโหลด PDF');
-  await page.locator('input[type="file"]').setInputFiles(samplePath);
-  await page.waitForSelector('a[href^="/app/editor/"]', { timeout: 40_000 });
-  check('เอกสารปรากฏในรายการหลังอัปโหลด', true);
-  check('แสดงจำนวนหน้าถูกต้อง', (await page.getByText('3 หน้า').count()) > 0);
-
-  // The headline interaction: dropping a file onto the zone, not just picking it.
+  // The headline interaction is dropping a file on the zone, not picking it.
   const pdfBase64 = (await readFile(samplePath)).toString('base64');
   await page.evaluate(async (base64) => {
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
     const file = new File([bytes], 'dropped.pdf', { type: 'application/pdf' });
     const transfer = new DataTransfer();
     transfer.items.add(file);
-    const zone = [...document.querySelectorAll('div')].find((node) =>
-      node.textContent?.includes('ลากไฟล์ PDF มาวางที่นี่') && node.className.includes('border-dashed'),
-    );
+    const zone = document.querySelector('div.border-dashed');
+    if (!zone) throw new Error('ไม่พบกรอบสำหรับวางไฟล์');
     zone.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: transfer }));
     zone.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
   }, pdfBase64);
-  await page.waitForFunction(
-    () => document.querySelectorAll('a[href^="/app/editor/"]').length === 2,
-    { timeout: 40_000 },
-  );
-  check('ลากไฟล์มาวางในกรอบอัปโหลดได้', true);
-
-  // Remove the dropped copy so the rest of the test works on one document.
-  // The confirmation is the app's own <dialog> rather than window.confirm, so
-  // the test drives it for real — including the path where the member backs out.
-  const countDocuments = () => page.locator('a[href^="/app/editor/"]').count();
-
-  await page.locator('button[title="ลบ"]').first().click();
-  const confirmDialog = page.locator('dialog[open]');
-  await confirmDialog.waitFor({ state: 'visible', timeout: 15_000 });
-  check('กดลบแล้วเจอกล่องยืนยันของแอปเอง', true);
-  check(
-    'กล่องยืนยันบอกว่าลบแล้วกู้คืนไม่ได้',
-    (await confirmDialog.textContent())?.includes('กู้คืนไม่ได้') === true,
-  );
-
-  await page.keyboard.press('Escape');
-  await confirmDialog.waitFor({ state: 'hidden', timeout: 10_000 });
-  check('กด Escape แล้วยกเลิกการลบ', (await countDocuments()) === 2);
-
-  await page.locator('button[title="ลบ"]').first().click();
-  await confirmDialog.waitFor({ state: 'visible', timeout: 15_000 });
-  await confirmDialog.getByRole('button', { name: 'ลบถาวร' }).click();
-  await page.waitForFunction(
-    () => document.querySelectorAll('a[href^="/app/editor/"]').length === 1,
-    { timeout: 30_000 },
-  );
-  check('ยืนยันแล้วลบเอกสารจากหน้ารายการได้', true);
 
   // --- Open the editor ----------------------------------------------------
-  console.log('\n[4] เปิดหน้าแก้ไขและเรนเดอร์ PDF');
-  await page.click('a[href^="/app/editor/"]');
-  await page.waitForURL('**/app/editor/**', { timeout: 30_000 });
+  console.log('\n[3] เรนเดอร์ PDF ที่วางเข้ามา');
 
   const stage = page.locator('[data-page-index="0"]');
-  await stage.waitFor({ state: 'visible', timeout: 40_000 });
+  await stage.waitFor({ state: 'visible', timeout: 60_000 });
+  check('ลากไฟล์มาวางแล้วเปิดหน้าแก้ไขให้เลย', true);
   // `canvas.width` is set before pdf.js paints, so waiting on it races the
   // render; `data-rendered` flips only once the page is actually painted.
   await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
@@ -448,77 +404,22 @@ try {
   check('ไฟล์ที่ได้มีข้อความที่พิมพ์ไว้', text.includes('สวัสดีจาก MeDF'), text.slice(0, 300));
   check('ไฟล์ที่ได้ยังมีเนื้อหาต้นฉบับ', text.includes('PAGEMARKER-ONE'));
 
-  // --- Reload keeps the work ---------------------------------------------
-  console.log('\n[16] เปิดเอกสารใหม่แล้วงานยังอยู่');
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-element-id]', { timeout: 40_000 });
-  check(
-    'องค์ประกอบทั้งหมดถูกบันทึกไว้จริง',
-    (await page.locator('[data-element-id]').count()) === 6,
-    String(await page.locator('[data-element-id]').count()),
-  );
-
-  // --- Subscription flow --------------------------------------------------
-  console.log('\n[17] อัปเกรดแพ็กเกจจากหน้าเว็บ');
-  await page.goto(`${BASE}/app/billing`, { waitUntil: 'domcontentloaded' });
-  await page.click('div.card:has-text("Pro") >> button:has-text("สมัครแพ็กเกจนี้")');
-  await page.waitForSelector('text=เปิดใช้แพ็กเกจ Pro เรียบร้อย', { timeout: 30_000 });
-  check('สมัครแพ็กเกจในโหมด sandbox ได้', true);
-  await page.waitForTimeout(1200);
-  check(
-    'แถบนำทางแสดงแพ็กเกจใหม่',
-    (await page.getByText('แพ็กเกจ Pro').count()) > 0,
-  );
-
-  // --- Open-core: this server has no paid module installed ---------------
-  console.log('\n[18] บิลด์โอเพนซอร์สที่ไม่มีโมดูลเสริม');
-  // Use the page's own fetch so the member's session cookie is sent.
-  const featureReport = await page.evaluate(async () =>
-    (await fetch('/api/features')).json(),
-  );
-  check('รายงานแพ็กเกจของสมาชิกที่เข้าสู่ระบบ', featureReport.plan === 'pro', featureReport.plan);
-  check('รายงานว่าไม่ได้ติดตั้งโมดูลเสริม', featureReport.proInstalled === false);
-  const proFeatures = featureReport.features.filter((feature) => feature.source === 'private');
-  check(
-    'ฟีเจอร์เสริมทุกตัวรายงานว่ายังไม่ได้ติดตั้ง',
-    proFeatures.length > 0 && proFeatures.every((feature) => feature.reason === 'not_installed'),
-    JSON.stringify(proFeatures.map((feature) => feature.reason)),
-  );
-  const coreFeatures = featureReport.features.filter((feature) => feature.source === 'core');
-  check(
-    'ฟีเจอร์ของ core ยังใช้งานได้ตามปกติ',
-    coreFeatures.some((feature) => feature.available),
-  );
-  const proStatus = await page.evaluate(async () => {
-    const response = await fetch('/api/pro/ocr', { method: 'POST' });
-    return { status: response.status, body: await response.json().catch(() => null) };
-  });
-  check(
-    'สมาชิกที่จ่ายเงินแล้วเรียกฟีเจอร์เสริมได้ 501 เมื่อเซิร์ฟเวอร์ไม่ได้ติดตั้ง',
-    proStatus.status === 501 && proStatus.body?.code === 'pro_not_installed',
-    JSON.stringify(proStatus),
-  );
-
   // --- The properties drawer on a phone ------------------------------------
   // Below `lg` the panel is a drawer over the page rather than a column beside
   // it, which makes it a modal: Escape must close it, Tab must not walk out
   // behind it, and focus must come back to the button that opened it. None of
   // that is free — the panel is an `<aside>`, not a `<dialog>`.
-  console.log('\n[19] แผงคุณสมบัติบนมือถือ');
+  console.log('\n[16] แผงคุณสมบัติบนมือถือ');
   const phone = await browser.newContext({
     locale: 'th-TH',
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
-    storageState: await context.storageState(),
   });
   const small = await phone.newPage();
-  // Reached the way a member would, rather than by remembering a URL from
-  // eighteen sections ago — by now `page` has moved on to billing.
-  await small.goto(`${BASE}/app`, { waitUntil: 'networkidle' });
-  await small.waitForSelector('a[href^="/app/editor/"]', { timeout: 40_000 });
-  await small.click('a[href^="/app/editor/"]');
-  await small.waitForSelector('#medf-properties-panel', { timeout: 40_000 });
+  await small.goto(`${BASE}/try`, { waitUntil: 'networkidle' });
+  await small.locator('input[type="file"]').setInputFiles(samplePath);
+  await small.waitForSelector('#medf-properties-panel', { timeout: 60_000 });
   await small.waitForTimeout(1500);
 
   const panel = small.locator('#medf-properties-panel');

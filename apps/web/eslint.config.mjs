@@ -2,18 +2,7 @@ import coreWebVitals from 'eslint-config-next/core-web-vitals';
 import typescriptConfig from 'eslint-config-next/typescript';
 
 /** Files that carry `import 'server-only'`; see the rule at the bottom. */
-const SERVER_ONLY_MODULES = [
-  '@/lib/api',
-  '@/lib/auth',
-  '@/lib/billing',
-  '@/lib/db',
-  '@/lib/documents',
-  '@/lib/pdf/fonts-node',
-  '@/lib/pro',
-  '@/lib/quota',
-  '@/lib/rate-limit',
-  '@/lib/storage',
-];
+const SERVER_ONLY_MODULES = ['@/lib/api', '@/lib/pdf/fonts-node'];
 
 const config = [
   ...coreWebVitals,
@@ -105,32 +94,6 @@ const config = [
               group: ['@/components/*', '@/app/*', '**/components/*', '**/app/*'],
               message:
                 'src/lib ต้องไม่ขึ้นกับ UI — ย้ายตรรกะที่ใช้ร่วมกันมาไว้ใน lib แล้วให้ component เรียกใช้',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  /**
-   * Blob storage has one door.
-   *
-   * `storage.ts` is the raw filesystem — buckets, key validation, atomic
-   * writes. What a *document's* files are called and which bucket each goes in
-   * is `document-files.ts`. Calling the filesystem directly from anywhere else
-   * spreads that convention back out, which is what made moving these blobs to
-   * object storage a twelve-site change rather than a one-file change.
-   */
-  {
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/lib/storage.ts', 'src/lib/document-files.ts', 'src/lib/db.ts'],
-    rules: {
-      '@typescript-eslint/no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/lib/storage', '**/lib/storage', './storage', '../storage'],
-              message: 'ใช้ document-files.ts แทน — storage.ts เป็นชั้นล่างสุดของระบบไฟล์',
             },
           ],
         },

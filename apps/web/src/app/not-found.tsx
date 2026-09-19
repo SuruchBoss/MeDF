@@ -15,7 +15,7 @@ export default async function NotFound() {
       <Link href="/" className="btn-primary btn-sm">
         {t('error.toHome')}
       </Link>
-      <Link href="/app" className="btn-secondary btn-sm">
+      <Link href="/try" className="btn-secondary btn-sm">
         {t('error.myDocuments')}
       </Link>
     </ErrorScreen>

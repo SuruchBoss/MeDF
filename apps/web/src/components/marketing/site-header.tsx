@@ -54,31 +54,13 @@ export function SiteHeader({
 
         <div className="hidden items-center gap-2 md:flex">
           <LanguageSwitcher />
-          {isDemo ? (
-            <>
-              <a href={repoUrl} className="btn-ghost" target="_blank" rel="noreferrer">
-                GitHub
-              </a>
-              <Link href={tryHref} className="btn-primary">
-                {t('nav.tryNow')}
-                <Icon name="arrow-right" size={16} />
-              </Link>
-            </>
-          ) : signedIn ? (
-            <Link href="/app" className="btn-primary">
-              {t('nav.toWorkspace')}
-              <Icon name="arrow-right" size={16} />
-            </Link>
-          ) : (
-            <>
-              <Link href="/login" className="btn-ghost">
-                {t('nav.login')}
-              </Link>
-              <Link href="/register" className="btn-primary">
-                {t('nav.signUpFree')}
-              </Link>
-            </>
-          )}
+          <a href={repoUrl} className="btn-ghost" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          <Link href={tryHref} className="btn-primary">
+            {t('nav.tryNow')}
+            <Icon name="arrow-right" size={16} />
+          </Link>
         </div>
 
         <button

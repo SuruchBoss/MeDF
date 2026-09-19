@@ -59,13 +59,12 @@ export function Landing({
 }: LandingProps) {
   const t = useT();
   const isDemo = variant === 'demo';
-  // In the demo there is no account to create, so the primary action is the
-  // editor itself.
-  const primary: { href: string; label: MessageKey } = isDemo
-    ? { href: tryHref, label: 'landing.hero.primaryDemo' }
-    : signedIn
-      ? { href: '/app', label: 'landing.hero.primaryWorkspace' }
-      : { href: '/register', label: 'landing.hero.primaryRegister' };
+  // There is no account to create: the editor itself is the primary action,
+  // on the product site exactly as in the demo.
+  const primary: { href: string; label: MessageKey } = {
+    href: tryHref,
+    label: 'landing.hero.primaryDemo',
+  };
 
   return (
     <div className="flex min-h-full flex-col">
@@ -290,7 +289,7 @@ export function Landing({
               </p>
             </div>
             <div className="mt-10">
-              <PricingTable signedIn={signedIn} demo={isDemo} tryHref={tryHref} />
+              <PricingTable demo={isDemo} tryHref={tryHref} />
             </div>
           </div>
         </section>
