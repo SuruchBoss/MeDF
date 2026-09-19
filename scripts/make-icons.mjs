@@ -1,23 +1,23 @@
 /**
- * Generates every raster icon the project ships, from one drawing.
+ * Generates every raster icon the site ships, from one drawing.
  *
- *   desktop/build/icon.png   256×256, the Electron window and installer
- *   desktop/build/icon.ico   the same image, wrapped for Windows
  *   apps/web/src/app/favicon.ico       anything that asks for /favicon.ico
  *   apps/web/src/app/apple-icon.png    iOS home screen
  *   apps/web/public/icon-192.png       web app manifest
  *   apps/web/public/icon-512.png       web app manifest
  *   apps/web/public/icon-maskable.png  Android adaptive icon
  *
- * It re-draws the web logo from the same 32-unit geometry, so the installed app
- * and the site share one identity, and the build needs no binary asset in the
- * repository and no image tooling installed.
+ * It re-draws the logo from the same 32-unit geometry that `LogoMark` uses, so
+ * the installed app and the site share one identity, and the build needs no
+ * binary asset checked in and no image tooling installed.
  *
- * The web's copies are *tracked*, unlike the desktop's: `next build` must not
- * depend on the desktop workspace having been built. Re-run this script after
- * changing the mark, or the site keeps the old one.
+ * The outputs are *tracked* in git: `next build` must not depend on anyone
+ * having run this first. Re-run it after changing the mark, or the site keeps
+ * the old one.
+ *
+ *   node scripts/make-icons.mjs
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
@@ -221,9 +221,6 @@ function encodeIco(png, size) {
   return Buffer.concat([directory, png]);
 }
 
-const outDir = path.join(import.meta.dirname, '..', 'build');
-await mkdir(outDir, { recursive: true });
-
 /**
  * Renders one square icon.
  *
@@ -241,15 +238,12 @@ function render(size, { inset = 0, opaque = false } = {}) {
   return encodePng(renderPixels());
 }
 
-const webApp = path.join(import.meta.dirname, '..', '..', 'apps', 'web', 'src', 'app');
-const webPublic = path.join(import.meta.dirname, '..', '..', 'apps', 'web', 'public');
-
-const desktopPng = render(256);
-await writeFile(path.join(outDir, 'icon.png'), desktopPng);
-await writeFile(path.join(outDir, 'icon.ico'), encodeIco(desktopPng, 256));
+const webApp = path.join(import.meta.dirname, '..', 'apps', 'web', 'src', 'app');
+const webPublic = path.join(import.meta.dirname, '..', 'apps', 'web', 'public');
 
 const written = [
-  [path.join(webApp, 'apple-icon.png'), desktopPng],
+  // 256 is what iOS wants for a home-screen icon.
+  [path.join(webApp, 'apple-icon.png'), render(256)],
   // Modern browsers follow `<link rel="icon">` to the SVG, but crawlers and
   // older clients still ask for /favicon.ico and got a 404.
   [path.join(webApp, 'favicon.ico'), encodeIco(render(64), 64)],
@@ -259,7 +253,4 @@ const written = [
 ];
 for (const [target, bytes] of written) await writeFile(target, bytes);
 
-console.log(
-  `[make-icon] build/icon.png (${desktopPng.length} bytes), build/icon.ico ` +
-    `และไอคอนของเว็บอีก ${written.length} ไฟล์`,
-);
+console.log(`[make-icons] เขียนไอคอน ${written.length} ไฟล์`);

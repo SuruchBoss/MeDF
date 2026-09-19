@@ -102,7 +102,7 @@ pre-commit hook (`npm run setup:hooks`) และขั้นตอนแรก�
 | --- | --- | --- |
 | **เดโมบนเว็บ** — [suruchboss.github.io/MeDF](https://suruchboss.github.io/MeDF/) | ไม่ต้องติดตั้งอะไร | หน้า Landing + หน้าแก้ไขที่ใช้งานได้จริงเท่าแพ็กเกจ Free (ทำงานในเบราว์เซอร์ล้วน ไม่มีการอัปโหลด และไม่บันทึกงานไว้) |
 | **รันบนเครื่องตัวเอง** | `npm install && npm run build && npm run start` | ตัวเต็ม: สมัครสมาชิก เก็บเอกสาร โควตา แพ็กเกจ และหน้าผู้ดูแลระบบ |
-| **ติดตั้งบน Windows** | `npm run dist:win` (หรือดาวน์โหลดจาก Releases) | ตัวเต็มแบบออฟไลน์ ข้อมูลอยู่ในเครื่อง |
+| **ติดตั้งบน Windows** | เปิดเว็บแล้วกด "ติดตั้ง" จากแถบที่อยู่ของ Chrome/Edge | ใช้ออฟไลน์ได้ ข้อมูลอยู่ในเครื่อง ([ทำไมไม่มี .exe แล้ว](docs/WINDOWS.md)) |
 
 หน้าแก้ไขแบบไม่ต้องสมัครมีอยู่ในตัวเต็มด้วยที่ `/try` จึงชวนคนลองก่อนสมัครได้
 
@@ -133,26 +133,8 @@ npm run start        # รันเซิร์ฟเวอร์ที่พอ
 
 ### ติดตั้งบน Windows
 
-```bash
-npm run dist:win              # ได้ตัวติดตั้ง NSIS (.exe) ใน desktop/dist
-npm run dist:win:portable     # ได้เวอร์ชัน portable ที่ไม่ต้องติดตั้ง
-```
-
-ดูรายละเอียดทั้งหมด (รวมถึงการสร้างตัวติดตั้งจากเครื่อง Linux/macOS และผ่าน GitHub Actions)
-ได้ที่ [`docs/WINDOWS.md`](docs/WINDOWS.md)
-
-### เผยแพร่เว็บเดโมบน GitHub Pages
-
-```bash
-npm run demo:build    # ได้ไฟล์สถิตที่ apps/demo/out
-npm run test:static   # ทดสอบแบบที่ Pages จะเสิร์ฟจริง
-```
-
-เปิดใช้ครั้งแรกต้องให้ผู้มีสิทธิ์ admin ตั้ง **Settings → Pages → Source = GitHub Actions**
-หนึ่งครั้ง (token ของ Actions ไม่มีสิทธิ์สร้าง Pages site เอง) หลังจากนั้นทุก push เข้า `main`
-จะ deploy ให้อัตโนมัติ — รายละเอียดอยู่ใน [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md)
-
----
+ไม่มีตัวติดตั้ง `.exe` แล้ว — ติดตั้งจากเบราว์เซอร์แทน (PWA) เหตุผลและโค้ด Electron เดิม
+อยู่ที่ [docs/WINDOWS.md](docs/WINDOWS.md)
 
 ## คำสั่งที่ใช้บ่อย
 
@@ -167,9 +149,7 @@ npm run test:static   # ทดสอบแบบที่ Pages จะเสิ�
 | `npm run test:demo` | เทสต์หน้า `/try` ว่าแก้ไขและ export ได้โดยไม่เรียก API เลย |
 | `npm run demo:build` / `npm run test:static` | สร้างเว็บสถิตสำหรับ GitHub Pages แล้วทดสอบแบบที่ Pages จะเสิร์ฟ |
 | `npm run test:standalone` | ตรวจว่าบันเดิล standalone รันได้และเสิร์ฟ asset ครบ |
-| `npm run test:desktop` | เปิดเชลล์ Electron แบบไม่มีจอ แล้วตรวจว่าโหลดแอปได้ |
-| `npm run desktop:dev` | เปิดแอปเดสก์ท็อปโดยต่อกับเซิร์ฟเวอร์ dev |
-| `npm run dist:win` | สร้างตัวติดตั้ง Windows |
+| `npm run icons` | วาดไอคอนทุกขนาดใหม่จากโลโก้ตัวเดียว |
 | `npm run guard:private` | ตรวจว่าไม่มีโค้ดของชั้นที่ชำระเงินอยู่ใน git |
 | `npm run setup:hooks` | ติดตั้ง pre-commit hook ของ guard |
 | `npm run pro:scaffold` | สร้างโครงโมดูลฟีเจอร์เสริมสำหรับพัฒนาในเครื่อง (อยู่ใน .gitignore) |
@@ -216,7 +196,6 @@ MeDF/
 │   │   └── pdf/                  # เครื่องมือ export (pdf-lib + ฟอนต์ + เมทริกซ์)
 │   ├── public/fonts/             # ฟอนต์ Sarabun (ใช้ทั้งบนจอและฝังใน PDF)
 │   └── scripts/                  # เทสต์ end-to-end และสคริปต์ build
-├── desktop/                      # เชลล์ Electron + ตัวติดตั้ง Windows
 ├── scripts/                      # guard โค้ดชั้นที่ชำระเงิน · git hooks · scaffold · test harness
 └── docs/                         # สถาปัตยกรรม · มาตรฐานโค้ด · open core · เว็บเดโม · Windows · deploy
 ```
