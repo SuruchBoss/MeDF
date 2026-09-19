@@ -29,9 +29,12 @@ function count(value: number, t: Translate, locale: Locale): string {
 
 const COMPARISON: ComparisonRow[] = [
   {
-    label: 'pricingPage.row.documents',
-    value: (plan, t, locale) =>
-      t('pricingPage.row.documentsValue', { count: count(plan.limits.maxDocuments, t, locale) }),
+    label: 'pricingPage.row.editText',
+    value: (plan, t) => (plan.limits.editOriginalText ? t('common.yes') : t('common.no')),
+  },
+  {
+    label: 'pricingPage.row.watermark',
+    value: (plan, t) => (plan.limits.watermark ? t('common.yes') : t('common.no')),
   },
   { label: 'pricingPage.row.uploadSize', value: (plan) => `${plan.limits.maxUploadMb} MB` },
   {
@@ -40,24 +43,11 @@ const COMPARISON: ComparisonRow[] = [
       t('pricingPage.row.pagesValue', { count: count(plan.limits.maxPages, t, locale) }),
   },
   {
-    label: 'pricingPage.row.exports',
-    value: (plan, t, locale) =>
-      t('pricingPage.row.exportsValue', { count: count(plan.limits.exportsPerMonth, t, locale) }),
-  },
-  {
-    label: 'pricingPage.row.watermark',
-    value: (plan, t) => (plan.limits.watermark ? t('common.yes') : t('common.no')),
-  },
-  {
     label: 'pricingPage.row.images',
     value: (plan, t) =>
       plan.limits.highQualityImages
         ? t('pricingPage.row.imagesFull')
         : t('pricingPage.row.imagesCompressed'),
-  },
-  {
-    label: 'pricingPage.row.support',
-    value: (plan, t) => (plan.limits.prioritySupport ? t('common.yes') : '—'),
   },
 ];
 

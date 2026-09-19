@@ -2,15 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FEATURES, planAllows } from '../src/lib/features.ts';
 import { formatCount, formatMoney } from '../src/lib/i18n/format.ts';
-import {
-  PAID_PLANS,
-  PLANS,
-  PLAN_ORDER,
-  type PlanId,
-  getPlan,
-  isPaidPlan,
-  yearlySavingPercent,
-} from '../src/lib/plans.ts';
+import { PLANS, PLAN_ORDER, type PlanId, getPlan, isPaidPlan } from '../src/lib/plans.ts';
 
 describe('the plan table', () => {
   it('lists every plan exactly once, in order', () => {
@@ -26,7 +18,7 @@ describe('the plan table', () => {
   });
 
   it('never gives a higher plan a smaller allowance', () => {
-    const numeric = ['maxDocuments', 'maxUploadMb', 'maxPages', 'exportsPerMonth'] as const;
+    const numeric = ['maxUploadMb', 'maxPages'] as const;
     for (let index = 1; index < PLAN_ORDER.length; index += 1) {
       const lower = PLANS[PLAN_ORDER[index - 1]].limits;
       const higher = PLANS[PLAN_ORDER[index]].limits;
@@ -42,8 +34,8 @@ describe('the plan table', () => {
         'a higher plan must not lose high-quality images',
       );
       assert.ok(
-        higher.prioritySupport || !lower.prioritySupport,
-        'a higher plan must not lose priority support',
+        higher.editOriginalText || !lower.editOriginalText,
+        'a higher plan must not lose original-text editing',
       );
     }
   });
@@ -52,8 +44,17 @@ describe('the plan table', () => {
     for (let index = 1; index < PLAN_ORDER.length; index += 1) {
       const lower = PLANS[PLAN_ORDER[index - 1]].price;
       const higher = PLANS[PLAN_ORDER[index]].price;
-      assert.ok(higher.monthly >= lower.monthly);
-      assert.ok(higher.yearly >= lower.yearly);
+      assert.ok(higher.licence >= lower.licence);
+      assert.ok(higher.renewal >= lower.renewal);
+    }
+  });
+
+  it('never charges more to renew than to buy', () => {
+    // The renewal buys updates, not access. Pricing it above the licence
+    // would make it a subscription wearing a licence's name.
+    for (const planId of PLAN_ORDER) {
+      const { licence, renewal } = PLANS[planId].price;
+      assert.ok(renewal <= licence, `${planId}: renewal ${renewal} exceeds licence ${licence}`);
     }
   });
 
@@ -68,34 +69,24 @@ describe('the plan table', () => {
     }
   });
 
-  it('makes paying yearly cheaper than paying monthly', () => {
-    for (const planId of PAID_PLANS) {
-      const plan = PLANS[planId];
-      assert.ok(plan.price.yearly < plan.price.monthly * 12, `${planId} yearly is not a discount`);
-      assert.ok(yearlySavingPercent(plan) > 0);
-    }
-    assert.equal(yearlySavingPercent(PLANS.free), 0, 'a free plan cannot show a saving');
-  });
-
   it('agrees with itself about which plans cost money', () => {
     for (const planId of PLAN_ORDER) {
       assert.equal(
         isPaidPlan(planId),
-        PLANS[planId].price.monthly > 0,
+        PLANS[planId].price.licence > 0,
         `isPaidPlan disagrees with the price of ${planId}`,
       );
-      assert.equal(PAID_PLANS.includes(planId), isPaidPlan(planId));
     }
   });
 });
 
 describe('getPlan', () => {
   it('returns the named plan', () => {
-    assert.equal(getPlan('pro').id, 'pro');
+    assert.equal(getPlan('paid').id, 'paid');
   });
 
   it('falls back to free for anything it does not recognise', () => {
-    for (const input of [null, undefined, '', 'enterprise', 'PRO', '__proto__', 'constructor']) {
+    for (const input of [null, undefined, '', 'enterprise', 'PAID', '__proto__', 'constructor']) {
       assert.equal(getPlan(input).id, 'free', `getPlan(${JSON.stringify(input)}) should be free`);
     }
   });
@@ -134,15 +125,16 @@ describe('the feature registry', () => {
   });
 
   it('refuses an unknown key rather than defaulting to allowed', () => {
-    assert.equal(planAllows('team', 'no.such.feature'), false);
-    assert.equal(planAllows('team', 'toString'), false, 'inherited keys are not features');
+    assert.equal(planAllows('paid', 'no.such.feature'), false);
+    assert.equal(planAllows('paid', 'toString'), false, 'inherited keys are not features');
+    assert.equal(planAllows('paid', '__proto__'), false, 'nor is the prototype itself');
   });
 
-  it('keeps every paid add-on out of the free plan', () => {
-    for (const feature of Object.values(FEATURES)) {
-      if (feature.source !== 'private') continue;
-      assert.equal(planAllows('free', feature.key), false, `${feature.key} is free by accident`);
-    }
+  it('keeps editing the original text behind the paid plan', () => {
+    // This is the line the whole price rests on; a stray edit that makes it
+    // free gives the product away.
+    assert.equal(planAllows('free', 'editor.originalText'), false);
+    assert.equal(planAllows('paid', 'editor.originalText'), true);
   });
 });
 
@@ -154,8 +146,8 @@ describe('features derived from plan limits', () => {
    */
   const derived: [key: string, satisfied: (planId: PlanId) => boolean][] = [
     ['export.noWatermark', (planId) => !PLANS[planId].limits.watermark],
-    ['export.unlimited', (planId) => !Number.isFinite(PLANS[planId].limits.exportsPerMonth)],
     ['export.highQualityImages', (planId) => PLANS[planId].limits.highQualityImages],
+    ['editor.originalText', (planId) => PLANS[planId].limits.editOriginalText],
   ];
 
   for (const [key, satisfied] of derived) {

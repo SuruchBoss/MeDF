@@ -36,21 +36,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# ---------------------------------------------------------------------------
-# Paid-tier source code (open-core model — see docs/OPEN_CORE.md).
-# These paths must never enter this public repository; `npm run guard:private`
-# fails the commit and the CI build if anything below is ever staged.
-# ---------------------------------------------------------------------------
-**/pro-private/
-**/medf-pro/
-**/private-module/
-**/private-modules/
-.medf-pro/
-*.pro.ts
-*.pro.tsx
-*.pro.js
-*.pro.mjs
-*.pro.cjs
+# The paid module is an ordinary dependency that is simply not published, so
+# there is nothing here to guard against any more (docs/OPEN_CORE.md).
 
 # generated: the demo's public assets are copied from apps/web at build time
 apps/demo/public/

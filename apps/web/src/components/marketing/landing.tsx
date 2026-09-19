@@ -289,7 +289,7 @@ export function Landing({
               </p>
             </div>
             <div className="mt-10">
-              <PricingTable demo={isDemo} tryHref={tryHref} />
+              <PricingTable tryHref={tryHref} />
             </div>
           </div>
         </section>

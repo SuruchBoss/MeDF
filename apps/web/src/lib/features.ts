@@ -1,21 +1,12 @@
 /**
- * Feature registry — the boundary between the open-source core and the paid
- * add-ons.
+ * Feature registry: every capability MeDF has, declared once, with the lowest
+ * plan entitled to it.
  *
- * Every capability in MeDF is declared here exactly once, with two orthogonal
- * properties:
- *
- *   `plan`   — the lowest plan entitled to it.
- *   `source` — where its code lives:
- *                'core'    the implementation is in this repository (open
- *                          source); the plan only gates *access*.
- *                'private' the implementation is NOT in this repository. It
- *                          ships as a separate private module that is loaded
- *                          at runtime; without that module the feature simply
- *                          does not exist.
- *
- * Declaring a feature here is deliberate: the *name* of a paid feature is
- * public (members need to know what they are buying), its *code* need not be.
+ * It used to carry a `source` saying whether the code was in this repository
+ * or in a private module loaded at runtime. That machinery is gone — the paid
+ * module is now an ordinary dependency that is simply not published — so a
+ * feature either exists here or is not listed. Nothing below is aspirational;
+ * see docs/OPEN_CORE.md.
  */
 
 import type { MessageKey } from './i18n';
@@ -33,95 +24,54 @@ function lowestPlanWhere(predicate: (limits: PlanLimits) => boolean): PlanId {
   return PLAN_ORDER.find((plan) => predicate(PLANS[plan].limits)) ?? PLAN_ORDER[PLAN_ORDER.length - 1];
 }
 
-export type FeatureSource = 'core' | 'private';
-
 export interface FeatureDefinition {
   key: string;
   /** Message keys: a member reads these, so they follow their language. */
   label: MessageKey;
   description: MessageKey;
   plan: PlanId;
-  source: FeatureSource;
 }
 
 export const FEATURES: Record<string, FeatureDefinition> = {
-  // --- Core: open source, available to everyone ---------------------------
   'editor.elements': {
     key: 'editor.elements',
     label: 'feature.editorElements.label',
     description: 'feature.editorElements.description',
     plan: 'free',
-    source: 'core',
   },
   'editor.pages': {
     key: 'editor.pages',
     label: 'feature.editorPages.label',
     description: 'feature.editorPages.description',
     plan: 'free',
-    source: 'core',
   },
   'export.pdf': {
     key: 'export.pdf',
     label: 'feature.exportPdf.label',
     description: 'feature.exportPdf.description',
     plan: 'free',
-    source: 'core',
   },
 
-  // --- Core: open source, but gated by plan ------------------------------
+  // Gated by plan. Each derives its tier from the plan table rather than
+  // restating it, so lifting a limit cannot leave this registry still telling
+  // members to upgrade for something they already have.
   'export.noWatermark': {
     key: 'export.noWatermark',
     label: 'feature.noWatermark.label',
     description: 'feature.noWatermark.description',
     plan: lowestPlanWhere((limits) => !limits.watermark),
-    source: 'core',
-  },
-  'export.unlimited': {
-    key: 'export.unlimited',
-    label: 'feature.unlimited.label',
-    description: 'feature.unlimited.description',
-    plan: lowestPlanWhere((limits) => !Number.isFinite(limits.exportsPerMonth)),
-    source: 'core',
   },
   'export.highQualityImages': {
     key: 'export.highQualityImages',
     label: 'feature.hqImages.label',
     description: 'feature.hqImages.description',
     plan: lowestPlanWhere((limits) => limits.highQualityImages),
-    source: 'core',
   },
-
-  // --- Paid add-ons: implementation lives outside this repository ---------
-  // The keys below are the contract the private module implements. When the
-  // module is not installed these features are reported as unavailable, and
-  // nothing in this repository reveals how they work.
-  'pro.ocr': {
-    key: 'pro.ocr',
-    label: 'feature.ocr.label',
-    description: 'feature.ocr.description',
-    plan: 'pro',
-    source: 'private',
-  },
-  'pro.redact': {
-    key: 'pro.redact',
-    label: 'feature.redact.label',
-    description: 'feature.redact.description',
-    plan: 'pro',
-    source: 'private',
-  },
-  'pro.templates': {
-    key: 'pro.templates',
-    label: 'feature.templates.label',
-    description: 'feature.templates.description',
-    plan: 'team',
-    source: 'private',
-  },
-  'pro.batch': {
-    key: 'pro.batch',
-    label: 'feature.batch.label',
-    description: 'feature.batch.description',
-    plan: 'team',
-    source: 'private',
+  'editor.originalText': {
+    key: 'editor.originalText',
+    label: 'feature.editText.label',
+    description: 'feature.editText.description',
+    plan: lowestPlanWhere((limits) => limits.editOriginalText),
   },
 };
 
@@ -145,15 +95,22 @@ export function planAllows(plan: PlanId, key: FeatureKey): boolean {
   return held >= required;
 }
 
-/** Shape returned to the browser so the UI can show or hide entry points. */
+/** Shape the UI reads to decide whether to show an entry point. */
 export interface FeatureAvailability {
   key: string;
   label: MessageKey;
   description: MessageKey;
   plan: PlanId;
-  source: FeatureSource;
-  /** Entitled by plan *and* actually installed on this server. */
   available: boolean;
-  /** Present for paid add-ons that this installation does not have. */
-  reason?: 'plan' | 'not_installed';
+}
+
+/** What this licence can reach, for a screen that lists the whole catalogue. */
+export function featuresFor(plan: PlanId): FeatureAvailability[] {
+  return Object.values(FEATURES).map((feature) => ({
+    key: feature.key,
+    label: feature.label,
+    description: feature.description,
+    plan: feature.plan,
+    available: planAllows(plan, feature.key),
+  }));
 }
