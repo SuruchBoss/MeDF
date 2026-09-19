@@ -65,6 +65,9 @@ jobs:
       - name: Try-it-now editor tests
         run: npm run test:demo
 
+      - name: UX/UI audit
+        run: npm run test:ux
+
       - name: Static demo build and check
         run: |
           npm run demo:build
@@ -78,6 +81,7 @@ jobs:
         with:
           name: medf-ci-artifacts
           path: |
+            apps/web/.ux-audit/
             apps/web/.next/build-manifest.json
           retention-days: 5
           if-no-files-found: ignore
