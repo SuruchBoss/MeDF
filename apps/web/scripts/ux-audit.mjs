@@ -22,6 +22,7 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
+  readBasePath,
   startStaticServer,
   waitForHttp,
 } from '../../../scripts/test-harness.mjs';
@@ -30,8 +31,11 @@ const webRoot = path.join(import.meta.dirname, '..');
 const outDir = path.join(webRoot, '.ux-audit');
 const QUICK = process.argv.includes('--quick');
 
+const siteDir = path.join(webRoot, 'out');
+// Served under the same base path the build was made with, as Pages does.
+const BASE_PATH = readBasePath(siteDir);
 const PORT = await freePort('AUDIT_PORT');
-const BASE = `http://127.0.0.1:${PORT}`;
+const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 
 /**
  * `windows-min` and `windows` mirror the desktop shell's window; the rest are
@@ -355,7 +359,7 @@ const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-ux-'));
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 
-const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
+const server = startStaticServer({ cwd: siteDir, port: PORT, basePath: BASE_PATH });
 
 const report = [];
 let browser;

@@ -14,8 +14,10 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
+  readBasePath,
   startStaticServer,
   waitForHttp,
+  watchPage,
 } from '../../../scripts/test-harness.mjs';
 
 /**
@@ -25,13 +27,16 @@ import {
  */
 const webRoot = path.join(import.meta.dirname, '..');
 
+const outDir = path.join(webRoot, 'out');
+// Served under the same base path the build was made with, as Pages does.
+const BASE_PATH = readBasePath(outDir);
 const PORT = await freePort('DEMO_PORT');
-const BASE = `http://127.0.0.1:${PORT}`;
+const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 
 const { check, report } = createChecker({ name: 'ทดสอบโหมดทดลอง' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-demo-'));
-const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
+const server = startStaticServer({ cwd: outDir, port: PORT, basePath: BASE_PATH });
 
 let failed = false;
 let browser;
@@ -49,6 +54,7 @@ try {
     acceptDownloads: true,
   });
   const page = await context.newPage();
+  const watch = watchPage(page);
 
   const consoleErrors = [];
   const apiCalls = [];
@@ -58,12 +64,15 @@ try {
   page.on('pageerror', (error) => consoleErrors.push(String(error)));
   page.on('request', (request) => {
     const url = new URL(request.url());
-    if (url.pathname.startsWith('/api/')) apiCalls.push(`${request.method()} ${url.pathname}`);
+    // Under a base path an API route would be `/MeDF/api/...`; count both.
+    const local = url.pathname.startsWith(BASE_PATH) ? url.pathname.slice(BASE_PATH.length) : url.pathname;
+    if (local.startsWith('/api/')) apiCalls.push(`${request.method()} ${url.pathname}`);
   });
 
   console.log('\n[1] เปิดหน้าทดลองใช้');
+  if (BASE_PATH) console.log(`  (เสิร์ฟใต้ base path ${BASE_PATH})`);
   await page.goto(`${BASE}/try`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('button:has-text("ใช้เอกสารตัวอย่าง"):not([disabled])', {
+  await watch.waitFor('button:has-text("ใช้เอกสารตัวอย่าง"):not([disabled])', {
     timeout: 60_000,
   });
   check('หน้า /try แสดงตัวเลือกเริ่มต้นได้', true);
@@ -74,10 +83,10 @@ try {
 
   console.log('\n[2] สร้างเอกสารตัวอย่างในเบราว์เซอร์');
   await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
-  await page.waitForSelector('[data-page-index="0"] canvas', { timeout: 90_000 });
+  await watch.waitFor('[data-page-index="0"] canvas', { timeout: 90_000 });
   // `canvas.width` is set before pdf.js paints, so waiting on it races the
   // render; `data-rendered` flips only once the page is actually painted.
-  await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
+  await watch.waitFor('[data-page-index="0"] canvas[data-rendered="true"]', {
     timeout: 90_000,
   });
   const ink = await page.evaluate(() => {

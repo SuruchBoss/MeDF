@@ -19,8 +19,10 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
+  readBasePath,
   startStaticServer,
   waitForHttp,
+  watchPage,
 } from '../../../scripts/test-harness.mjs';
 import { makeSamplePdf } from './make-sample-pdf.mjs';
 
@@ -31,15 +33,18 @@ import { makeSamplePdf } from './make-sample-pdf.mjs';
  */
 const webRoot = path.join(import.meta.dirname, '..');
 
+const siteDir = path.join(webRoot, 'out');
+// Served under the same base path the build was made with, as Pages does.
+const BASE_PATH = readBasePath(siteDir);
 const PORT = await freePort('UI_PORT');
-const BASE = `http://127.0.0.1:${PORT}`;
+const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 const { check, report } = createChecker({ name: 'ทดสอบหน้าเว็บ' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-ui-'));
 const samplePath = path.join(dataDir, 'sample-document.pdf');
 await writeFile(samplePath, await makeSamplePdf());
 
-const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
+const server = startStaticServer({ cwd: siteDir, port: PORT, basePath: BASE_PATH });
 
 let failed = false;
 let browser;
@@ -60,6 +65,7 @@ try {
     acceptDownloads: true,
   });
   const page = await context.newPage();
+  const watch = watchPage(page);
 
   const consoleErrors = [];
   page.on('console', (message) => {
@@ -141,11 +147,11 @@ try {
   console.log('\n[3] เรนเดอร์ PDF ที่วางเข้ามา');
 
   const stage = page.locator('[data-page-index="0"]');
-  await stage.waitFor({ state: 'visible', timeout: 60_000 });
+  await watch.waitFor('[data-page-index="0"]', { timeout: 60_000 });
   check('ลากไฟล์มาวางแล้วเปิดหน้าแก้ไขให้เลย', true);
   // `canvas.width` is set before pdf.js paints, so waiting on it races the
   // render; `data-rendered` flips only once the page is actually painted.
-  await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
+  await watch.waitFor('[data-page-index="0"] canvas[data-rendered="true"]', {
     timeout: 90_000,
   });
   check('เรนเดอร์หน้า PDF ลงแคนวาสได้', true);

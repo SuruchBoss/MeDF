@@ -10,9 +10,18 @@
  * Nothing here knows anything about MeDF; it is only the scaffolding.
  */
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import net from 'node:net';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -161,12 +170,116 @@ export function startNextServer({ cwd, port, env = {} }) {
   });
 }
 
-/** A plain static file server, the way GitHub Pages serves the demo. */
-export function startStaticServer({ cwd, port }) {
-  return startServer({
+/**
+ * The base path a static export was built with, read from the build itself.
+ *
+ * `NEXT_PUBLIC_BASE_PATH` is baked into every asset URL at build time, so the
+ * build is the only reliable witness: an environment variable set (or not)
+ * when the tests run can disagree with the one set when the site was built,
+ * and then every script and stylesheet 404s. That mismatch is exactly what
+ * kept the Pages deploy red (#24).
+ */
+export function readBasePath(outDir) {
+  const indexFile = path.join(outDir, 'index.html');
+  if (!existsSync(indexFile)) {
+    throw new Error(`ไม่พบ ${indexFile} — รัน \`npm run build\` ก่อน`);
+  }
+  const match = readFileSync(indexFile, 'utf8').match(/(?:src|href)="([^"]*?)\/_next\/static\//);
+  if (!match) throw new Error(`อ่าน base path จาก ${indexFile} ไม่ได้ — ไม่พบ URL ของ /_next/static/`);
+  return match[1];
+}
+
+/**
+ * A plain static file server, the way GitHub Pages serves the site.
+ *
+ * Pages serves a project site under `/<repo>/`, so a build made for it asks
+ * for `/<repo>/_next/...`. Serving `outDir` at the root would 404 every one of
+ * those requests and the page would never hydrate. With a `basePath`, the
+ * folder is mounted at that path instead, through a symlink in a temporary
+ * root, so the test sees the same URLs a visitor does.
+ */
+export function startStaticServer({ cwd, port, basePath = '' }) {
+  let root = cwd;
+  let mountRoot = null;
+  if (basePath) {
+    mountRoot = mkdtempSync(path.join(tmpdir(), 'medf-site-'));
+    const mountPoint = path.join(mountRoot, ...basePath.split('/').filter(Boolean));
+    mkdirSync(path.dirname(mountPoint), { recursive: true });
+    // 'junction' lets Windows create the link without admin rights; POSIX ignores it.
+    symlinkSync(path.resolve(cwd), mountPoint, 'junction');
+    root = mountRoot;
+  }
+
+  const server = startServer({
     args: [require.resolve('http-server/bin/http-server'), '-p', String(port), '-c-1', '--silent', '.'],
-    cwd,
+    cwd: root,
   });
+
+  return {
+    ...server,
+    stop() {
+      server.stop();
+      // `rm` removes the symlink itself and never follows it into the build.
+      if (mountRoot) rmSync(mountRoot, { recursive: true, force: true });
+    },
+  };
+}
+
+/**
+ * Remembers what went wrong underneath a page, so a wait that times out can
+ * say why instead of only "Timeout 90000ms exceeded".
+ *
+ * The page usually knows: the app shows its own error in a `role="alert"`,
+ * and a request that 404s is visible to the browser. Before this, both were
+ * invisible in the log and #24 cost a week of guessing.
+ */
+export function watchPage(page) {
+  const failures = [];
+  page.on('response', (response) => {
+    if (response.status() >= 400) failures.push(`HTTP ${response.status()} ${response.url()}`);
+  });
+  page.on('requestfailed', (request) => {
+    // A 404 is followed by an ERR_ABORTED for the same URL; one line is enough.
+    if (failures.some((line) => line.endsWith(` ${request.url()}`))) return;
+    failures.push(`${request.failure()?.errorText ?? 'failed'} ${request.url()}`);
+  });
+  page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
+
+  async function explain() {
+    const alerts = (await page.locator('[role="alert"]').allInnerTexts().catch(() => []))
+      .map((text) => text.trim())
+      .filter(Boolean);
+    const unique = [...new Set(failures)];
+    const lines = [
+      alerts.length > 0
+        ? `ข้อความ error บนหน้าจอ: ${alerts.join(' | ')}`
+        : 'ไม่มีข้อความ error บนหน้าจอ',
+      unique.length > 0
+        ? `request หรือสคริปต์ที่ล้ม (${unique.length}):\n${unique
+            .slice(0, 10)
+            .map((line) => `    ${line}`)
+            .join('\n')}`
+        : 'ไม่มี request ที่ล้ม',
+    ];
+    if (unique.some((line) => line.includes('/_next/'))) {
+      lines.push(
+        'JavaScript ของแอปโหลดไม่ได้ หน้าจึงไม่ hydrate — base path ที่เสิร์ฟตรงกับที่ build มาหรือไม่',
+      );
+    }
+    return lines.join('\n');
+  }
+
+  return {
+    explain,
+    /** `page.waitForSelector`, but a timeout carries the explanation. */
+    async waitFor(selector, options) {
+      try {
+        return await page.waitForSelector(selector, options);
+      } catch (error) {
+        throw new Error(`${error.message}\n\n--- สิ่งที่หน้าเว็บบอก ---\n${await explain()}`);
+      }
+    },
+  };
 }
 
 /** Polls `url` until it answers, or gives up with the server's own output. */
