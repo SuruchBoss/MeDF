@@ -178,6 +178,12 @@ it('always returns 0-359, never 360', () => {
 หรือ boot เซิร์ฟเวอร์ขึ้นมาใหม่เอง** และห้ามใช้พอร์ตตายตัว (ใช้ `freePort()`)
 เพราะถ้ามีอย่างอื่นจองพอร์ตนั้นอยู่ เทสต์จะไปคุยกับเซิร์ฟเวอร์ผิดตัวโดยไม่แจ้งเตือน
 
+เสิร์ฟ build ด้วย `startStaticServer({ basePath: readBasePath(outDir) })` เสมอ — base path
+อ่านจาก build เอง ไม่ใช่จาก env ตอนรันเทสต์ (เคยเป็นบั๊กจริง: เสิร์ฟ build `/MeDF` ไว้ที่ root
+JS ทุกไฟล์ 404 และ Pages deploy ล้มอยู่สองสัปดาห์ #24)
+และการรอ selector ที่อาจค้าง ใช้ `watchPage(page).waitFor()` — timeout จะพกข้อความ error
+บนหน้าจอและ request ที่ล้มมาด้วย ไม่ใช่แค่ "Timeout 90000ms exceeded"
+
 ---
 
 ## 6. Open core: เส้นแบ่งอยู่ที่โมดูลเดียว
