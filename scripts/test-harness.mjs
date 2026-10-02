@@ -10,9 +10,10 @@
  * Nothing here knows anything about MeDF; it is only the scaffolding.
  */
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import net from 'node:net';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -161,12 +162,42 @@ export function startNextServer({ cwd, port, env = {} }) {
   });
 }
 
-/** A plain static file server, the way GitHub Pages serves the demo. */
-export function startStaticServer({ cwd, port }) {
-  return startServer({
+/**
+ * The base path the export was built with (`NEXT_PUBLIC_BASE_PATH`), e.g.
+ * `/MeDF` for the GitHub Pages build or `''` for a root deploy.
+ */
+export function siteBasePath() {
+  return (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/+$/, '');
+}
+
+/**
+ * A plain static file server, the way GitHub Pages serves the demo.
+ *
+ * A build made with a base path references its assets as `/MeDF/_next/...`,
+ * so serving `out/` at the root would 404 every script and the page would
+ * never hydrate. With `basePath`, `cwd` is mounted at that path instead —
+ * through a symlink in a throwaway directory, so the export is not copied.
+ */
+export function startStaticServer({ cwd, port, basePath = '' }) {
+  let root = cwd;
+  if (basePath) {
+    root = mkdtempSync(path.join(tmpdir(), 'medf-site-'));
+    const mount = path.join(root, ...basePath.split('/').filter(Boolean));
+    mkdirSync(path.dirname(mount), { recursive: true });
+    symlinkSync(path.resolve(cwd), mount, 'dir');
+  }
+  const server = startServer({
     args: [require.resolve('http-server/bin/http-server'), '-p', String(port), '-c-1', '--silent', '.'],
-    cwd,
+    cwd: root,
   });
+  if (root === cwd) return server;
+  return {
+    ...server,
+    stop: () => {
+      server.stop();
+      rmSync(root, { recursive: true, force: true });
+    },
+  };
 }
 
 /** Polls `url` until it answers, or gives up with the server's own output. */

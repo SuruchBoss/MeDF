@@ -14,6 +14,7 @@ import {
   findChromium,
   freePort,
   loadPlaywright,
+  siteBasePath,
   startStaticServer,
   waitForHttp,
 } from '../../../scripts/test-harness.mjs';
@@ -26,12 +27,19 @@ import {
 const webRoot = path.join(import.meta.dirname, '..');
 
 const PORT = await freePort('DEMO_PORT');
-const BASE = `http://127.0.0.1:${PORT}`;
+// The site lives under its base path (`/MeDF` on GitHub Pages), so every URL
+// the test opens does too — exactly as a visitor would reach it.
+const BASE_PATH = siteBasePath();
+const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 
 const { check, report } = createChecker({ name: 'ทดสอบโหมดทดลอง' });
 
 const dataDir = await mkdtemp(path.join(tmpdir(), 'medf-demo-'));
-const server = startStaticServer({ cwd: path.join(webRoot, 'out'), port: PORT });
+const server = startStaticServer({
+  cwd: path.join(webRoot, 'out'),
+  port: PORT,
+  basePath: BASE_PATH,
+});
 
 let failed = false;
 let browser;
@@ -56,9 +64,46 @@ try {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => consoleErrors.push(String(error)));
+  // Kept only to explain a failure: a page that never renders usually has a
+  // missing script, worker or font behind it, and the URL says which.
+  const failedRequests = [];
+  page.on('response', (response) => {
+    if (response.status() >= 400) failedRequests.push(`${response.status()} ${response.url()}`);
+  });
+  page.on('requestfailed', (request) =>
+    failedRequests.push(`${request.failure()?.errorText ?? 'failed'} ${request.url()}`),
+  );
+
+  /**
+   * Waits for `selector`, and on failure says why — the editor's error banner,
+   * the requests that failed and the console errors — instead of a bare
+   * timeout. The banner is read only after the wait fails: waiting on
+   * `selector, [role="alert"]` together made the sample hang at "opening PDF"
+   * in this test every time, though the page renders fine on its own.
+   */
+  async function waitForRender(selector, timeout) {
+    try {
+      await page.waitForSelector(selector, { timeout });
+      return;
+    } catch (error) {
+      if (!String(error).includes('Timeout')) throw error;
+    }
+    const alert = page.locator('[role="alert"]');
+    const banner = (await alert.count()) > 0 ? (await alert.first().innerText()).trim() : '';
+    const lines = [
+      `รอ ${selector} เกิน ${timeout / 1000} วินาที`,
+      `หน้าเว็บแจ้งว่า: ${banner || 'ไม่มีข้อความ error บนหน้าจอ'}`,
+      `request ที่ล้ม: ${failedRequests.slice(0, 10).join(' | ') || 'ไม่มี'}`,
+      `console error: ${consoleErrors.slice(0, 5).join(' | ') || 'ไม่มี'}`,
+    ];
+    throw new Error(`เรนเดอร์เอกสารไม่สำเร็จ\n  ${lines.join('\n  ')}`);
+  }
   page.on('request', (request) => {
     const url = new URL(request.url());
-    if (url.pathname.startsWith('/api/')) apiCalls.push(`${request.method()} ${url.pathname}`);
+    const pathname = url.pathname.startsWith(`${BASE_PATH}/`)
+      ? url.pathname.slice(BASE_PATH.length)
+      : url.pathname;
+    if (pathname.startsWith('/api/')) apiCalls.push(`${request.method()} ${url.pathname}`);
   });
 
   console.log('\n[1] เปิดหน้าทดลองใช้');
@@ -74,12 +119,10 @@ try {
 
   console.log('\n[2] สร้างเอกสารตัวอย่างในเบราว์เซอร์');
   await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
-  await page.waitForSelector('[data-page-index="0"] canvas', { timeout: 90_000 });
+  await waitForRender('[data-page-index="0"] canvas', 90_000);
   // `canvas.width` is set before pdf.js paints, so waiting on it races the
   // render; `data-rendered` flips only once the page is actually painted.
-  await page.waitForSelector('[data-page-index="0"] canvas[data-rendered="true"]', {
-    timeout: 90_000,
-  });
+  await waitForRender('[data-page-index="0"] canvas[data-rendered="true"]', 90_000);
   const ink = await page.evaluate(() => {
     const canvas = document.querySelector('[data-page-index="0"] canvas');
     const { data } = canvas
