@@ -24,6 +24,7 @@ import { createBrowserFontLoader } from '@/lib/pdf/fonts-browser';
 import { PdfGeometryError, readPageGeometry } from '@/lib/pdf/page-geometry';
 import { createSampleDocument } from '@/lib/pdf/sample-document';
 import { withBasePath } from '@/lib/base-path';
+import { useHydrated } from '@/lib/client/use-hydrated';
 import { formatBytes } from '@/lib/format';
 import { PLANS } from '@/lib/plans';
 import type { MessageKey } from '@/lib/i18n';
@@ -66,6 +67,10 @@ export function EditorPage({ homeHref = '/' }: { homeHref?: string }) {
   const [usage, setUsage] = useState<{ usedBytes: number; quotaBytes: number } | null>(null);
   const [storable, setStorable] = useState<boolean | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Until React attaches its handlers these buttons are dead: a click before
+  // hydration does nothing at all, which on a slow connection reads as a
+  // broken app. Disabled says "not yet" instead.
+  const hydrated = useHydrated();
 
   // Release the object URLs when the visitor loads another document or leaves.
   const previous = useRef<DemoBackend | LocalBackend | null>(null);
@@ -356,7 +361,7 @@ export function EditorPage({ homeHref = '/' }: { homeHref?: string }) {
                 type="button"
                 className="btn-primary"
                 onClick={() => inputRef.current?.click()}
-                disabled={busy != null}
+                disabled={!hydrated || busy != null}
               >
                 {busy === 'file' ? <Spinner size={17} /> : <Icon name="file-text" size={17} />}
                 {t('demo.pickFile')}
@@ -365,7 +370,7 @@ export function EditorPage({ homeHref = '/' }: { homeHref?: string }) {
                 type="button"
                 className="btn-secondary"
                 onClick={() => void handleSample()}
-                disabled={busy != null}
+                disabled={!hydrated || busy != null}
               >
                 {busy === 'sample' ? <Spinner size={17} /> : <Icon name="sparkles" size={17} />}
                 {t('demo.useSample')}

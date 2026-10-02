@@ -81,6 +81,19 @@ try {
     (await page.getByText('โหมดทดลอง · แพ็กเกจ Free').count()) > 0,
   );
 
+  // The prerendered HTML is what a visitor sees before the scripts arrive.
+  // A button that looks ready then does nothing is how #24 hid: the wait
+  // above read "not disabled" as "hydrated" while no JavaScript had loaded.
+  const noScript = await browser.newContext({ locale: 'th-TH', javaScriptEnabled: false });
+  const htmlOnly = await noScript.newPage();
+  await htmlOnly.goto(`${BASE}/try/`, { waitUntil: 'domcontentloaded' });
+  check(
+    'ก่อนสคริปต์โหลด ปุ่มเปิดเอกสารถูกปิดไว้ ไม่ใช่กดแล้วเงียบ',
+    (await htmlOnly.locator('button:has-text("ใช้เอกสารตัวอย่าง")').isDisabled()) &&
+      (await htmlOnly.locator('button:has-text("เลือกไฟล์")').isDisabled()),
+  );
+  await noScript.close();
+
   console.log('\n[2] สร้างเอกสารตัวอย่างในเบราว์เซอร์');
   await page.click('button:has-text("ใช้เอกสารตัวอย่าง")');
   await watch.waitFor('[data-page-index="0"] canvas', { timeout: 90_000 });
