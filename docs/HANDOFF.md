@@ -21,7 +21,9 @@ machinery และยุบแพ็กเกจเหลือสอง) · #8
 (`LocalBackend` บน IndexedDB) และเขียน README ใหม่ทั้งฉบับ
 
 **ยังไม่มีอะไรขึ้นเว็บจริง** — workflow *Deploy to GitHub Pages* ล้มตั้งแต่ run #8
-บน `c580bf9` นั่นคือ #24 ด้านล่าง
+บน `c580bf9` และ run #9 บน `8b61fb4` (2 ต.ค. 2026) ก็ล้มซ้ำที่ขั้นเดิม คือ
+*Verify the exported site really works* (`npm run test:demo`) job `Deploy` จึงถูกข้าม
+ทั้งสองครั้ง — อาการไม่เปลี่ยนหลังงาน #9 เข้า main นั่นคือ #24 ด้านล่าง
 
 ## 2. ทำอะไรต่อ — ตามลำดับ
 
